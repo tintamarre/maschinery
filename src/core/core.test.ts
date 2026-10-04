@@ -3,6 +3,7 @@ import { BAR, SCALES, STEP } from './constants'
 import { addEvent, clearSound, doublePattern, laneValueAt, newPattern, quantizeEvents, removeEventsIn, setBars, shiftEvents, toggleStep, writeAutoPoint } from './pattern'
 import { KITS, cloneProject, createDemoProject, createProject, migrate } from './project'
 import { swingOffset, unswing } from './sequencer'
+import { decodeProject, encodeProject, estimateLatency } from './share'
 
 describe('swing', () => {
   it('is a no-op when straight', () => {
@@ -148,5 +149,42 @@ describe('automation', () => {
     writeAutoPoint(p, 'g.pan', 10, 0.2, null)
     doublePattern(p)
     expect(p.auto[0]!.points.map((pt) => pt.t)).toEqual([10, 10 + BAR])
+  })
+})
+
+describe('share links', () => {
+  it('round-trips a project through a short url-safe string', async () => {
+    const demo = createDemoProject()
+    const text = await encodeProject(demo)
+    expect(text).toMatch(/^[A-Za-z0-9_-]+$/)
+    expect(text.length).toBeLessThan(JSON.stringify(demo).length / 2)
+    const back = migrate(await decodeProject(text))
+    expect(back.name).toBe(demo.name)
+    expect(back.tempo).toBe(demo.tempo)
+    expect(back.groups[0]!.patterns[0]!.events).toEqual(demo.groups[0]!.patterns[0]!.events)
+    expect(back.groups[5]!.patterns[3]!.events).toEqual([])
+    expect(back.song).toEqual(demo.song)
+  })
+
+  it('rejects garbage', async () => {
+    await expect(decodeProject('not-a-project')).rejects.toBeDefined()
+  })
+})
+
+describe('latency estimate', () => {
+  const clicks = Array.from({ length: 12 }, (_, i) => 1 + i * 0.5)
+
+  it('recovers a constant offset and ignores the output latency', () => {
+    const taps = clicks.map((c) => c + 0.02 + 0.045)
+    expect(estimateLatency(taps, clicks, 0.045)).toBe(20)
+  })
+
+  it('is robust to a few stray taps', () => {
+    const taps = [...clicks.map((c) => c + 0.03), 1.26, 3.8]
+    expect(estimateLatency(taps, clicks, 0)).toBe(30)
+  })
+
+  it('needs enough taps', () => {
+    expect(estimateLatency([1.0, 1.5], clicks, 0)).toBeNull()
   })
 })

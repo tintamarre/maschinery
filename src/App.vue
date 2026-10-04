@@ -144,6 +144,12 @@ onUnmounted(() => {
 })
 
 // ---- scale-to-fit: the controller is a fixed-size layout that never scrolls --------
+const canFullscreen = typeof document !== 'undefined' && document.fullscreenEnabled
+function toggleFullscreen() {
+  if (document.fullscreenElement) void document.exitFullscreen()
+  else void document.documentElement.requestFullscreen()
+}
+
 const stage = ref<HTMLElement | null>(null)
 const portrait = ref(false)
 const scale = ref(1)
@@ -185,6 +191,7 @@ onUnmounted(() => {
         <div class="ro"><small>Group · Pattern</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}<em>{{ currentPattern.bars }} bar{{ currentPattern.bars > 1 ? 's' : '' }}</em></span></div>
       </div>
       <div class="vu" title="Master level"><i v-for="n in 24" :key="n" :class="{ lit: n <= vuLevel, warm: n > 16, hot: n > 21 }" /></div>
+      <button v-if="canFullscreen" class="hw spk" title="Fullscreen" @click="toggleFullscreen">Full</button>
       <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output (meters keep running)" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
     </header>
 
@@ -229,6 +236,7 @@ onUnmounted(() => {
       </section>
     </div>
   </div>
+  <div v-if="ui.calibrating" class="calib">Tap any key or click along with the clicks… <b>{{ ui.calibCount }}</b></div>
   <div v-if="ui.toast" class="toast">{{ ui.toast }}</div>
   <div v-if="ui.busy" class="busy">{{ ui.busy }}</div>
   </div>
@@ -238,6 +246,7 @@ onUnmounted(() => {
 .viewport {
   position: fixed;
   inset: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -275,6 +284,7 @@ onUnmounted(() => {
 .ro.big span.run { text-shadow: 0 0 10px color-mix(in srgb, var(--g) 70%, transparent); }
 .ro em { font-style: normal; font-size: 10px; color: #5d7280; margin-left: 7px; }
 .spk { flex: none; min-width: 64px; padding-top: 12px; }
+.calib { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 10px 18px; border-radius: 10px; background: #000e; border: 1px solid var(--g); z-index: 70; font-size: 14px; }
 .spk.on::before { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
 .vu { display: flex; gap: 2px; height: 22px; align-items: stretch; padding: 4px 6px; background: var(--lcd); border-radius: 5px; border: 1px solid #000; }
 .vu i { width: 4px; border-radius: 1px; background: #11181d; }

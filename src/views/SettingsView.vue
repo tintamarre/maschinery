@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CHORD_QUALITIES, NOTE_NAMES, QUANTIZE, REPEAT_RATES, SCALES } from '../core/constants'
 import { midiSupported } from '../core/midi'
-import { chooseMidiChannel, chooseMidiInput, enableMidi, settings, toast, ui } from '../store'
+import { chooseMidiChannel, chooseMidiInput, enableMidi, settings, startCalibration, toast, ui } from '../store'
 
 const shortcuts: [string, string][] = [
   ['Z X C V / A S D F / Q W E R / 1 2 3 4', 'Pads 1–16 (bottom row first)'],
@@ -55,6 +55,7 @@ function reset() {
         <label class="sub">Count-in <select v-model.number="settings.countIn"><option :value="0">Off</option><option v-for="n in [1, 2, 4]" :key="n" :value="n">{{ n }} bar</option></select></label>
         <label class="sub">Note repeat <select v-model.number="settings.repeatRate"><option v-for="(r, i) in REPEAT_RATES" :key="r.label" :value="i">{{ r.label }}</option></select></label>
         <label class="sub">Latency comp. <input v-model.number="settings.latency" type="number" min="-50" max="150" class="mono" /> ms</label>
+        <button class="btn" :disabled="ui.calibrating" title="Tap along with 12 clicks (any key or click) to measure your recording latency" @click="startCalibration">{{ ui.calibrating ? `Tap along… ${ui.calibCount}` : 'Calibrate' }}</button>
         <label class="sub"><input v-model="settings.metronome" type="checkbox" /> Metronome</label>
       </div>
     </section>

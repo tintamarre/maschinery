@@ -35,7 +35,8 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+html, body { overscroll-behavior: none; -webkit-touch-callout: none; }
 .mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
 
 /* ---- hardware buttons -------------------------------------------------- */

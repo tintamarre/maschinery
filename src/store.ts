@@ -18,6 +18,7 @@ import {
   sampleFromBase64, sampleToBase64, trimSilence,
 } from './core/samples'
 import { Sequencer } from './core/sequencer'
+import { decodeProject, encodeProject, estimateLatency } from './core/share'
 import type { Voice } from './core/voices'
 import type { AutoLane, EngineId, KnobDef, NoteEvent, Project, Settings, SoundParams } from './core/types'
 
@@ -98,6 +99,8 @@ export const ui = reactive({
   muted: false,
   snapArm: false,
   autoWrite: false,
+  calibrating: false,
+  calibCount: 0,
   autoView: false,
   snap: new Array<number>(NUM_GROUPS).fill(-1),
 })
@@ -1159,6 +1162,89 @@ export async function bounce(songMode: boolean, loops: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// share links
+// ---------------------------------------------------------------------------
+
+export async function copyShareLink(): Promise<void> {
+  try {
+    const code = await encodeProject(toRaw(project))
+    const url = `${location.origin}${location.pathname}#p=${code}`
+    await navigator.clipboard.writeText(url)
+    const hasSamples = usedSampleIds(project).length > 0
+    toast(`Link copied (${(url.length / 1000).toFixed(1)}k chars)${hasSamples ? ' · samples are not included' : ''}${url.length > 60000 ? ' · very long, may not paste everywhere' : ''}`)
+  } catch {
+    toast('Could not copy the link')
+  }
+}
+
+/** open a project from `#p=...` (used on startup and when the hash changes) */
+export async function loadFromHash(): Promise<boolean> {
+  const m = /^#p=([A-Za-z0-9_-]+)$/.exec(location.hash)
+  if (!m) return false
+  try {
+    const raw = await decodeProject(m[1]!)
+    replaceProject(migrate(raw))
+    toast(`Opened shared project “${project.name}”`)
+    history.replaceState(null, '', location.pathname + location.search)
+    return true
+  } catch {
+    toast('That share link is not valid')
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// latency calibration: tap along with a click track
+// ---------------------------------------------------------------------------
+
+let calibTaps: number[] = []
+let calibClicks: number[] = []
+let calibHandler: ((e: Event) => void) | null = null
+
+export function startCalibration(): void {
+  if (ui.calibrating) return
+  const e = ensureAudio()
+  const ctx = e.ctx as AudioContext
+  calibTaps = []
+  calibClicks = []
+  ui.calibCount = 0
+  ui.calibrating = true
+  releaseAllPads()
+  const t0 = ctx.currentTime + 0.6
+  for (let i = 0; i < 16; i++) {
+    const t = t0 + i * 0.5
+    e.click(t, i % 4 === 0, 0.9)
+    if (i >= 4) calibClicks.push(t)
+  }
+  calibHandler = (ev: Event) => {
+    ev.preventDefault()
+    ev.stopPropagation()
+    const ts = ctx.getOutputTimestamp()
+    const now = (ts.contextTime ?? ctx.currentTime) + (performance.now() - (ts.performanceTime ?? performance.now())) / 1000
+    calibTaps.push(now)
+    ui.calibCount = calibTaps.length
+  }
+  window.addEventListener('pointerdown', calibHandler, true)
+  window.addEventListener('keydown', calibHandler, true)
+  setTimeout(() => finishCalibration(ctx), 0.6 * 1000 + 16 * 500 + 600)
+}
+
+function finishCalibration(ctx: AudioContext): void {
+  if (calibHandler) {
+    window.removeEventListener('pointerdown', calibHandler, true)
+    window.removeEventListener('keydown', calibHandler, true)
+    calibHandler = null
+  }
+  ui.calibrating = false
+  const est = estimateLatency(calibTaps, calibClicks, ctx.outputLatency || ctx.baseLatency || 0)
+  if (est === null) toast('Not enough taps: tap along with the 12 clicks and try again')
+  else {
+    settings.latency = Math.max(-50, Math.min(150, est))
+    toast(`Latency compensation set to ${settings.latency} ms`)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // MIDI
 // ---------------------------------------------------------------------------
 
@@ -1197,6 +1283,29 @@ export function chooseMidiChannel(c: number): void {
 // frame loop: playhead, pad LEDs, meters
 // ---------------------------------------------------------------------------
 
+let wakeLock: { release(): Promise<void> } | null = null
+
+async function setWakeLock(on: boolean): Promise<void> {
+  try {
+    const nav = navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } }
+    if (on && nav.wakeLock && !wakeLock) wakeLock = await nav.wakeLock.request('screen')
+    else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null }
+  } catch {
+    wakeLock = null
+  }
+}
+
+/** iOS and Safari only start audio from a real gesture and may suspend it later: resume on every gesture */
+export function installAudioUnlock(): void {
+  const resume = () => {
+    const e = ensureAudio()
+    const ctx = e.ctx as AudioContext
+    if (ctx.state !== 'running') void ctx.resume()
+  }
+  for (const ev of ['touchend', 'click', 'keydown']) window.addEventListener(ev, resume, { passive: true })
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && engine && engine.ctx.state !== 'running') void (engine.ctx as AudioContext).resume() })
+}
+
 function rafLoop(): void {
   const step = () => {
     if (engine && seq) {
@@ -1212,7 +1321,7 @@ function rafLoop(): void {
       }
       if (n) hits.splice(0, n)
 
-      if (playback.playing !== seq.playing) playback.playing = seq.playing
+      if (playback.playing !== seq.playing) { playback.playing = seq.playing; void setWakeLock(seq.playing) }
       if (playback.recording !== seq.recording) playback.recording = seq.recording
       const ci = seq.countInLeft > 0
       if (playback.countIn !== ci) playback.countIn = ci

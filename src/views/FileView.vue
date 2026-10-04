@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { bounceBars } from '../core/bounce'
 import {
-  bounce, deleteSlot, exportProject, importProject, listSlots, loadDemo, loadSlot, newProject, project, saveSlot, ui,
+  bounce, copyShareLink, deleteSlot, exportProject, importProject, listSlots, loadDemo, loadSlot, newProject, project, saveSlot, ui,
 } from '../store'
 
 const slots = ref(listSlots())
@@ -53,6 +53,7 @@ const songBars = () => bounceBars(project, { song: true, loops: 1 })
       <div class="row">
         <button class="btn" @click="exportProject">Export project (.json with samples)</button>
         <button class="btn" @click="file?.click()">Import project…</button>
+        <button class="btn primary" title="Copy a link that opens this project (samples are not included)" @click="copyShareLink">Copy share link</button>
         <input ref="file" type="file" accept=".json,application/json" hidden @change="onFile" />
       </div>
     </section>
