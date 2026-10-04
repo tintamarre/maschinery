@@ -1,7 +1,7 @@
 import { DELAY_DIVS, NUM_GROUPS, clamp } from './constants'
 import { sampleBuffers } from './samples'
 import type { Project, Sound } from './types'
-import { buildVoice, makeNoise, type Voice } from './voices'
+import { ENGINE_TRIM_DB, buildVoice, makeNoise, type Voice } from './voices'
 
 interface Strip {
   input: GainNode
@@ -266,7 +266,7 @@ export class AudioEngine {
     const p = snd.params
     const t = Math.max(time, this.ctx.currentTime)
     const vel01 = clamp(vel127 / 127, 0, 1)
-    const level = (1 - p.velSens) + p.velSens * vel01
+    const level = ((1 - p.velSens) + p.velSens * vel01) * Math.pow(10, ENGINE_TRIM_DB[snd.engine] / 20)
     const strip = this.strip(g, s)
 
     if (p.choke > 0) {

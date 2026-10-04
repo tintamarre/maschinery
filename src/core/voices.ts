@@ -22,6 +22,12 @@ export interface Voice {
   bend(cents: number): void
 }
 
+/** per-engine loudness trim in dB, measured offline so every engine lands at a similar perceived level */
+export const ENGINE_TRIM_DB: Record<EngineId, number> = {
+  kick: 1.5, snare: 6, clap: 14, hat: 16, tom: 2, rim: 13, cowbell: 5, perc: 4, shaker: 10, crash: 4,
+  bass: -4, lead: -3, pluck: 2, pad: -2, sample: 0,
+}
+
 export const SUSTAINED: Partial<Record<EngineId, boolean>> = { bass: true, lead: true, pad: true, sample: true }
 
 const dscale = (d: number) => Math.pow(4, d * 2 - 1)
@@ -99,8 +105,8 @@ function kick(vi: VoiceInput): Voice {
   const env = perc(r, t, vel, p.attack, 0.45 * sc)
   const o = osc(r, 'sine', (80 + p.tone * 240) * ratio, t, t + 0.6 * sc + 0.15, env)
   o.frequency.exponentialRampToValueAtTime(Math.max(42 * ratio, 25), t + 0.07 * sc + 0.015)
-  const click = perc(r, t, vel * 0.3 * (0.2 + p.tone), 0, 0.012)
-  noiseSrc(r, vi, t, 0.03).connect(filt(r, 'highpass', 1500, 0.7, click))
+  const click = perc(r, t, vel * 0.12 * (0.2 + p.tone), 0, 0.010)
+  noiseSrc(r, vi, t, 0.03).connect(filt(r, 'bandpass', 2200, 0.8, click))
   return voiceOf(r)
 }
 
@@ -108,11 +114,13 @@ function snare(vi: VoiceInput): Voice {
   const r = rig(vi)
   const { t, vel, p, ratio } = vi
   const sc = dscale(p.decay)
-  const body = perc(r, t, vel * 0.55, p.attack, 0.12 * sc)
-  const o = osc(r, 'triangle', 200 * ratio, t, t + 0.3 * sc, body)
-  o.frequency.exponentialRampToValueAtTime(120 * ratio, t + 0.08)
-  const nz = perc(r, t, vel * (0.35 + 0.5 * p.tone), p.attack, (0.12 + 0.12 * p.tone) * sc)
-  noiseSrc(r, vi, t, 0.6 * sc).connect(filt(r, 'highpass', 1200 + p.tone * 2000, 0.7, nz))
+  const body = perc(r, t, vel * 0.8, p.attack, 0.13 * sc)
+  const o = osc(r, 'triangle', 190 * ratio, t, t + 0.3 * sc, body)
+  o.frequency.exponentialRampToValueAtTime(125 * ratio, t + 0.08)
+  const o2 = osc(r, 'sine', 330 * ratio, t, t + 0.2 * sc, body)
+  o2.frequency.exponentialRampToValueAtTime(220 * ratio, t + 0.05)
+  const nz = perc(r, t, vel * (0.3 + 0.45 * p.tone), p.attack, (0.12 + 0.12 * p.tone) * sc)
+  noiseSrc(r, vi, t, 0.6 * sc).connect(filt(r, 'highpass', 700 + p.tone * 900, 0.7, filt(r, 'lowpass', 6500, 0.7, nz)))
   return voiceOf(r)
 }
 
@@ -177,8 +185,8 @@ function rim(vi: VoiceInput): Voice {
   const sc = dscale(p.decay)
   const env = perc(r, t, vel * 0.4, p.attack, 0.035 * sc)
   osc(r, 'square', 1700 * ratio, t, t + 0.1, env).frequency.exponentialRampToValueAtTime(1100 * ratio, t + 0.03)
-  const nz = perc(r, t, vel * 0.4 * (0.3 + p.tone), 0, 0.03 * sc)
-  noiseSrc(r, vi, t, 0.08).connect(filt(r, 'highpass', 3000, 0.7, nz))
+  const nz = perc(r, t, vel * 0.3 * (0.3 + p.tone), 0, 0.03 * sc)
+  noiseSrc(r, vi, t, 0.08).connect(filt(r, 'bandpass', 2400, 1.1, nz))
   return voiceOf(r)
 }
 
