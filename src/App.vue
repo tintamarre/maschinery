@@ -9,6 +9,7 @@ import PadOptions from './components/PadOptions.vue'
 import TouchStrip from './components/TouchStrip.vue'
 import Transport from './components/Transport.vue'
 import { PAD_KEYS } from './core/constants'
+import { clearSelection, copySelection, deleteSelection, duplicateSelection, pasteAtCursor, selectAll, selectionSize } from './selection'
 import BrowserView from './views/BrowserView.vue'
 import FileView from './views/FileView.vue'
 import MasterView from './views/MasterView.vue'
@@ -67,7 +68,18 @@ function onKeyDown(e: KeyboardEvent) {
     else undo()
     return
   }
+  if ((e.metaKey || e.ctrlKey) && ui.view === 'pattern') {
+    const act: Record<string, () => void> = { KeyA: selectAll, KeyC: copySelection, KeyV: pasteAtCursor, KeyD: duplicateSelection }
+    const fn = act[e.code]
+    if (fn) { e.preventDefault(); fn(); return }
+  }
   if (e.metaKey || e.ctrlKey) return
+  if (ui.view === 'pattern' && selectionSize() && (e.code === 'Delete' || e.code === 'Backspace')) {
+    e.preventDefault()
+    deleteSelection()
+    return
+  }
+  if (e.code === 'Escape') { clearSelection(); return }
   const pad = keyToPad.get(e.code)
   if (pad !== undefined) {
     e.preventDefault()

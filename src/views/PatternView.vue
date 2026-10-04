@@ -4,15 +4,19 @@ import { BAR, NUM_PATTERNS, STEP, soundColor } from '../core/constants'
 import { addEvent, removeEventsIn } from '../core/pattern'
 import { SUSTAINED } from '../core/voices'
 import {
+  adjustNote, adjustVelocity, applyMove, beginMove, clearSelection, copySelection, deleteSelection, duplicateSelection, isSelected,
+  moveSnap, pasteAtCursor, sel, selectAll, selectionSize, setSelection,
+} from '../selection'
+import {
   PARAM_META, clearCurrentPattern, clearCurrentSound, deleteLane, laneLabel, currentGroup, currentPattern, doubleCurrent, patternBars, playback, previewSound,
   quantTicks, quantizeCurrent, selectPattern, selectSound, setEventVelocity, settings, shiftCurrent, snapshot, ui,
 } from '../store'
 
 const LABEL_W = 92
 const HEAD_H = 14
-const ROW_H = 14
+const ROW_H = 13
 const GRID_H = HEAD_H + 16 * ROW_H
-const VEL_H = 44
+const VEL_H = 40
 
 const wrap = ref<HTMLElement | null>(null)
 const cv = ref<HTMLCanvasElement | null>(null)
@@ -51,6 +55,7 @@ function drawGrid() {
   const steps = pat.bars * 16
   const cw = cellW()
   void pat.rev
+  void sel.rev
   const events = toRaw(pat).events
 
   ctx.fillStyle = '#070b0e'
@@ -94,10 +99,32 @@ function drawGrid() {
     ctx.roundRect(x + 0.5, y, w, ROW_H - 4, 2)
     ctx.fill()
     ctx.globalAlpha = 1
+    if (isSelected(e)) {
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 1.5
+      ctx.strokeRect(x + 0.5, y - 0.5, w, ROW_H - 3)
+    }
     if (sustained && e.n !== 0 && w > 14) {
       ctx.fillStyle = '#000'
       ctx.fillText((e.n > 0 ? '+' : '') + e.n, x + 3, y + (ROW_H - 4) / 2)
     }
+  }
+  if (sel.tool === 'select') {
+    const cx = LABEL_W + (sel.cursor / STEP) * cw
+    ctx.strokeStyle = '#ffd60a'
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    ctx.moveTo(cx + 0.5, HEAD_H)
+    ctx.lineTo(cx + 0.5, GRID_H)
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+  if (rubber) {
+    ctx.fillStyle = '#ffffff22'
+    ctx.strokeStyle = '#ffffffaa'
+    ctx.lineWidth = 1
+    ctx.fillRect(rubber.x0, rubber.y0, rubber.x1 - rubber.x0, rubber.y1 - rubber.y0)
+    ctx.strokeRect(rubber.x0 + 0.5, rubber.y0 + 0.5, rubber.x1 - rubber.x0, rubber.y1 - rubber.y0)
   }
   if (playback.playing) {
     const pos = playback.pos[ui.group] ?? 0
@@ -180,6 +207,7 @@ function drawVel() {
   }
 }
 
+watch(() => [ui.group, currentGroup.value.pattern], () => clearSelection())
 watchEffect(drawGrid)
 watchEffect(drawVel)
 watch(width, () => nextTick(() => { drawGrid(); drawVel() }))
@@ -197,6 +225,8 @@ watch(
 
 // ---- painting ---------------------------------------------------------------
 
+let rubber: { x0: number; y0: number; x1: number; y1: number } | null = null
+let drag: { mode: 'move' | 'rect'; x: number; y: number } | null = null
 let paint: 'add' | 'remove' | null = null
 let lastCell = ''
 
@@ -229,7 +259,79 @@ function apply(s: number, step: number) {
   }
 }
 
+function localXY(e: PointerEvent): { x: number; y: number } {
+  const r = cv.value!.getBoundingClientRect()
+  const k = cv.value!.offsetWidth / r.width
+  return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }
+}
+
+function eventAt(x: number, y: number) {
+  const row = Math.floor((y - HEAD_H) / ROW_H)
+  const tick = ((x - LABEL_W) / cellW()) * STEP
+  const grp = currentGroup.value
+  for (const ev of toRaw(currentPattern.value).events) {
+    if (ev.s !== row) continue
+    const sustained = !!SUSTAINED[grp.sounds[ev.s]!.engine]
+    if (tick >= ev.t && tick < ev.t + (sustained ? Math.max(ev.l, STEP / 2) : STEP)) return ev
+  }
+  return null
+}
+
+function selectDown(e: PointerEvent): boolean {
+  const { x, y } = localXY(e)
+  if (x < LABEL_W || y < HEAD_H) return false
+  cv.value!.setPointerCapture(e.pointerId)
+  const ev = eventAt(x, y)
+  if (ev) {
+    if (!isSelected(ev)) setSelection([ev], e.shiftKey)
+    selectSound(ev.s)
+    beginMove()
+    drag = { mode: 'move', x, y }
+  } else {
+    if (!e.shiftKey) clearSelection()
+    const snap = ((x - LABEL_W) / cellW()) * STEP
+    sel.cursor = Math.max(0, Math.round(snap / STEP) * STEP)
+    drag = { mode: 'rect', x, y }
+    rubber = { x0: x, y0: y, x1: x, y1: y }
+  }
+  return true
+}
+
+function selectMove(e: PointerEvent) {
+  if (!drag) return
+  const { x, y } = localXY(e)
+  if (drag.mode === 'move') {
+    const snap = moveSnap()
+    const dTicks = Math.round((((x - drag.x) / cellW()) * STEP) / snap) * snap
+    const dRows = Math.round((y - drag.y) / ROW_H)
+    applyMove(dTicks, dRows)
+  } else if (rubber) {
+    rubber = { x0: Math.min(drag.x, x), y0: Math.min(drag.y, y), x1: Math.max(drag.x, x), y1: Math.max(drag.y, y) }
+    sel.rev++
+  }
+}
+
+function selectUp(e: PointerEvent) {
+  if (!drag) return
+  if (drag.mode === 'rect' && rubber) {
+    const cw = cellW()
+    const grp = currentGroup.value
+    const hits = toRaw(currentPattern.value).events.filter((ev) => {
+      const sustained = !!SUSTAINED[grp.sounds[ev.s]!.engine]
+      const x0 = LABEL_W + (ev.t / STEP) * cw
+      const x1 = x0 + (sustained ? Math.max((ev.l / STEP) * cw, 4) : cw)
+      const y0 = HEAD_H + ev.s * ROW_H
+      return x1 >= rubber!.x0 && x0 <= rubber!.x1 && y0 + ROW_H >= rubber!.y0 && y0 <= rubber!.y1
+    })
+    setSelection(hits, e.shiftKey)
+  }
+  drag = null
+  rubber = null
+  sel.rev++
+}
+
 function onDown(e: PointerEvent) {
+  if (sel.tool === 'select' && selectDown(e)) return
   const h = hit(e)
   if (!h) return
   if (h.step < 0) { selectSound(h.s); previewSound(ui.group, h.s); return }
@@ -242,12 +344,14 @@ function onDown(e: PointerEvent) {
 }
 
 function onMove(e: PointerEvent) {
+  if (sel.tool === 'select') { selectMove(e); return }
   if (e.buttons === 0 || (paint === null && lastCell === '')) return
   const h = hit(e)
   if (h && h.step >= 0) apply(h.s, h.step)
 }
 
-function onUp() {
+function onUp(e: PointerEvent) {
+  if (sel.tool === 'select') { selectUp(e); return }
   paint = null
   lastCell = ''
 }
@@ -311,17 +415,38 @@ function velUp() { velTarget = null }
         <span class="sub">Bars</span>
         <button v-for="b in 4" :key="b" class="chip" :class="{ on: currentPattern.bars === b }" @click="patternBars(b)">{{ b }}</button>
       </div>
+    </div>
+    <div class="tools">
       <div class="chips">
-        <button class="btn" :title="quantTicks ? 'Quantize all notes to the grid' : 'Quantize is off (Settings)'" @click="quantizeCurrent(true)">Quantize</button>
-        <button class="btn" @click="doubleCurrent">×2</button>
-        <button class="btn" title="Shift pattern one step left" @click="shiftCurrent(-1)">◀</button>
-        <button class="btn" title="Shift pattern one step right" @click="shiftCurrent(1)">▶</button>
-        <button class="btn danger" @click="clearCurrentSound">Clr sound</button>
-        <button class="btn danger" @click="clearCurrentPattern">Clr pattern</button>
+        <button class="chip" :class="{ on: sel.tool === 'draw' }" title="Click cells to add or remove notes" @click="sel.tool = 'draw'">Draw</button>
+        <button class="chip" :class="{ on: sel.tool === 'select' }" title="Select, move and copy notes" @click="sel.tool = 'select'">Select</button>
       </div>
       <div class="chips">
-        <button class="chip" :class="{ on: !ui.autoView }" @click="ui.autoView = false">Velocity</button>
+        <button class="chip" :class="{ on: !ui.autoView }" @click="ui.autoView = false">Vel</button>
         <button class="chip" :class="{ on: ui.autoView }" title="Show recorded automation lanes" @click="ui.autoView = true">Auto{{ currentPattern.auto.length ? ' ' + currentPattern.auto.length : '' }}</button>
+      </div>
+      <div class="chips">
+        <button class="btn" :title="quantTicks ? 'Quantize all notes to the grid' : 'Quantize is off (Setup)'" @click="quantizeCurrent(true)">Quant</button>
+        <button class="btn" title="Double the pattern" @click="doubleCurrent">×2</button>
+        <button class="btn" title="Shift pattern one step left" @click="shiftCurrent(-1)">◀</button>
+        <button class="btn" title="Shift pattern one step right" @click="shiftCurrent(1)">▶</button>
+        <button class="btn danger" @click="clearCurrentSound">Clr snd</button>
+        <button class="btn danger" @click="clearCurrentPattern">Clr pat</button>
+      </div>
+    </div>
+    <div class="tools sel">
+      <span class="sub">Selection {{ selectionSize() || '' }}</span>
+      <div class="chips">
+        <button class="btn" title="Cmd/Ctrl+A" @click="sel.tool = 'select'; selectAll()">All</button>
+        <button class="btn" :disabled="!selectionSize()" title="Cmd/Ctrl+C" @click="copySelection">Copy</button>
+        <button class="btn" title="Paste at the yellow cursor · Cmd/Ctrl+V" @click="pasteAtCursor">Paste</button>
+        <button class="btn" :disabled="!selectionSize()" title="Cmd/Ctrl+D" @click="duplicateSelection">Dup</button>
+        <button class="btn danger" :disabled="!selectionSize()" title="Delete" @click="deleteSelection">Del</button>
+        <span class="sep" />
+        <button class="btn" :disabled="!selectionSize()" @click="adjustVelocity(-10)">Vel −</button>
+        <button class="btn" :disabled="!selectionSize()" @click="adjustVelocity(10)">Vel +</button>
+        <button class="btn" :disabled="!selectionSize()" title="Transpose down a semitone" @click="adjustNote(-1)">Note −</button>
+        <button class="btn" :disabled="!selectionSize()" title="Transpose up a semitone" @click="adjustNote(1)">Note +</button>
       </div>
     </div>
     <div ref="wrap" class="canvases">
@@ -332,10 +457,14 @@ function velUp() { velTarget = null }
 </template>
 
 <style scoped>
-.pv { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; }
+.pv { display: flex; flex-direction: column; gap: 4px; height: 100%; min-height: 0; }
 .tools { display: flex; flex-wrap: wrap; gap: 5px 10px; align-items: center; }
 .chips { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-.tools .btn { padding: 4px 8px; }
+.tools .btn { padding: 3px 7px; height: 24px; }
+.tools .chip { min-width: 22px; padding: 0 6px; height: 22px; }
+.tools { min-height: 24px; }
+.tools.sel { gap: 8px; }
+.sep { width: 8px; }
 .canvases { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: none; }
 canvas { display: block; touch-action: none; border-radius: 4px; cursor: crosshair; }
 canvas.vel { cursor: ns-resize; }
