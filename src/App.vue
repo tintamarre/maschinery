@@ -199,8 +199,7 @@ onUnmounted(() => {
             <h3>{{ knobTitle }}</h3>
             <div v-if="pageCount > 1" class="pager">
               <span class="sub">Page</span>
-              <button class="chip" :class="{ on: ui.page === 0 }" @click="ui.page = 0">1</button>
-              <button class="chip" :class="{ on: ui.page === 1 }" @click="ui.page = 1">2</button>
+              <button v-for="n in pageCount" :key="n" class="chip" :class="{ on: ui.page === n - 1 }" @click="ui.page = n - 1">{{ n }}</button>
             </div>
           </div>
           <Knob v-for="(k, i) in knobs" :key="i" :k="k" />

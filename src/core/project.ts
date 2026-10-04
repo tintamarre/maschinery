@@ -4,7 +4,7 @@ import type { EngineId, Group, MasterParams, Project, Sound, SoundParams } from 
 
 export const BASE_PARAMS: SoundParams = {
   pitch: 0, attack: 0, decay: 0.5, tone: 0.5, drive: 0, cutoff: 1, reso: 0.1, volume: 0.8, pan: 0,
-  reverb: 0, delay: 0, start: 0, end: 1, velSens: 0.7, choke: 0, gate: 0,
+  reverb: 0, delay: 0, start: 0, end: 1, velSens: 0.7, choke: 0, gate: 0, hp: 0, crush: 0, reverse: 0,
 }
 
 export const ENGINE_LABELS: Record<EngineId, string> = {

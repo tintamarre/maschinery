@@ -331,21 +331,37 @@ function sample(vi: VoiceInput): Voice {
   const src = vi.ctx.createBufferSource()
   src.buffer = buffer
   src.playbackRate.value = ratio
-  const start = Math.min(p.start, p.end - 0.001) * buffer.duration
-  const dur = Math.max(0.005, (p.end - p.start) * buffer.duration)
+  // reversed buffers mirror the start/end markers so the same region plays backwards
+  const rev = p.reverse >= 0.5
+  const a0 = rev ? 1 - p.end : p.start
+  const a1 = rev ? 1 - p.start : p.end
+  const start = Math.min(a0, a1 - 0.001) * buffer.duration
+  const dur = Math.max(0.005, (a1 - a0) * buffer.duration)
+  const mode = Math.round(p.gate)
   const rel = 0.01 + p.decay * 0.4
   const env = sustainEnv(r, vi, vel, p.attack * 0.3, rel)
   src.connect(env.g)
-  src.start(t, start, dur)
-  const gated = p.gate >= 0.5
-  const natural = t + dur / ratio
-  if (!gated) {
+  if (mode === 2) {
+    src.loop = true
+    src.loopStart = start
+    src.loopEnd = start + dur
+    src.start(t, start)
+  } else {
+    src.start(t, start, dur)
+  }
+  const sustained = mode >= 1
+  if (!sustained) {
     // one-shot: play to the end with a short tail fade
+    const natural = t + dur / ratio
     env.g.gain.setValueAtTime(Math.max(vel, 0.0002), Math.max(t + 0.002, natural - 0.005))
     env.g.gain.linearRampToValueAtTime(0.0001, natural)
   }
-  const release = (rt: number) => { if (gated) env.rel(rt) }
-  if (gated && vi.len !== undefined) release(t + vi.len)
+  const release = (rt: number) => {
+    if (!sustained) return
+    env.rel(rt)
+    try { src.stop(rt + rel + 0.1) } catch { /* already stopped */ }
+  }
+  if (sustained && vi.len !== undefined) release(t + vi.len)
   const v = voiceOf(r, release)
   v.bend = (cents) => { src.detune.value = cents }
   return v

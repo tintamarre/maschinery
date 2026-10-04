@@ -18,7 +18,10 @@ export interface SoundParams {
   end: number // sample end 0..1
   velSens: number // 0..1
   choke: number // 0 = none, 1..8 = choke group
-  gate: number // 0 = one-shot, 1 = gate (sustain while held)
+  gate: number // sampler: 0 = one-shot, 1 = gate (sustain while held), 2 = loop
+  hp: number // high-pass 0..1 (0 = off)
+  crush: number // bit crusher 0..1 (0 = off)
+  reverse: number // sampler: 1 = play backwards
 }
 
 export interface Sound {

@@ -8,11 +8,12 @@ import {
 } from '../store'
 
 const keys = Object.keys(PARAM_META) as (keyof SoundParams)[]
-const activeKeys = computed(() =>
-  ui.page === 0
-    ? ['pitch', 'attack', 'decay', 'tone', 'drive', 'cutoff', 'reso', 'volume']
-    : ['pan', 'reverb', 'delay', 'velSens', 'choke', 'gate', 'start', 'end'],
-)
+const PAGES = [
+  ['pitch', 'attack', 'decay', 'tone', 'drive', 'cutoff', 'reso', 'volume'],
+  ['pan', 'reverb', 'delay', 'velSens', 'choke', 'gate', 'start', 'end'],
+  ['hp', 'crush', 'reverse'],
+]
+const activeKeys = computed(() => PAGES[ui.page] ?? PAGES[0]!)
 
 function onInput(key: keyof SoundParams, e: Event) {
   setSoundParam(ui.group, ui.sound, key, Number((e.target as HTMLInputElement).value))
@@ -66,10 +67,12 @@ onUnmounted(() => cancelAnimationFrame(raf))
     <div class="top">
       <div class="who">
         <h3>Sound {{ ui.sound + 1 }} · Group {{ currentGroup.name }}</h3>
+        <div class="line">
         <input type="text" :value="currentSound.name" maxlength="18" @input="renameSound(ui.group, ui.sound, ($event.target as HTMLInputElement).value)" />
         <select :value="currentSound.engine" @change="onEngine">
           <option v-for="id in ENGINES" :key="id" :value="id">{{ ENGINE_LABELS[id] }}</option>
         </select>
+        </div>
       </div>
       <div class="acts">
         <button class="btn primary" @click="previewSound()">Audition</button>
@@ -77,7 +80,7 @@ onUnmounted(() => cancelAnimationFrame(raf))
         <button class="btn" :class="{ primary: currentSound.solo }" @click="toggleSoloSound(ui.group, ui.sound)">Solo</button>
         <button class="btn" title="Copy this sound to the next pad" @click="copySound(ui.group, ui.sound, (ui.sound + 1) % 16)">Copy → next</button>
       </div>
-      <canvas ref="scope" width="360" height="64" class="scope" />
+      <canvas ref="scope" width="300" height="48" class="scope" />
     </div>
     <div class="params">
       <label v-for="k in keys" :key="k" :class="{ hot: activeKeys.includes(k) }">
@@ -91,13 +94,15 @@ onUnmounted(() => cancelAnimationFrame(raf))
 
 <style scoped>
 .sv { display: flex; flex-direction: column; gap: 10px; }
-.top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
-.who { display: flex; flex-direction: column; gap: 5px; }
+.top { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-end; }
+.who { display: flex; flex-direction: column; gap: 4px; }
+.line { display: flex; gap: 6px; }
+.line input { width: 130px; }
 .who h3 { margin-bottom: 2px; }
 .acts { display: flex; gap: 5px; flex-wrap: wrap; }
 .scope { margin-left: auto; border-radius: 4px; border: 1px solid #16222a; max-width: 100%; }
-.params { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 2px 16px; }
-label { display: grid; grid-template-columns: 54px 1fr 46px; align-items: center; gap: 6px; font-size: 11px; color: #5d7280; padding: 1px 0; }
+.params { margin-top: 2px; display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 2px 16px; }
+label { display: grid; grid-template-columns: 54px 1fr 46px; align-items: center; gap: 6px; font-size: 11px; color: #5d7280; padding: 0; }
 label.hot { color: #cfe0ea; }
 label.hot span { color: var(--g); }
 em { font-style: normal; text-align: right; font-size: 10px; }

@@ -1,12 +1,14 @@
 import { DELAY_DIVS, NUM_GROUPS, clamp } from './constants'
-import { sampleBuffers } from './samples'
+import { reversedBuffer, sampleBuffers } from './samples'
 import type { Project, Sound } from './types'
 import { ENGINE_TRIM_DB, buildVoice, makeNoise, type Voice } from './voices'
 
 interface Strip {
   input: GainNode
+  hp: BiquadFilterNode
   filter: BiquadFilterNode
   shaper: WaveShaperNode
+  crusher: WaveShaperNode
   gain: GainNode
   pan: StereoPannerNode
   sendRev: GainNode
@@ -29,6 +31,19 @@ function driveCurve(amount: number): Float32Array<ArrayBuffer> {
   for (let i = 0; i < n; i++) {
     const x = (i / (n - 1)) * 2 - 1
     curve[i] = amount < 0.001 ? x : ((1 + k) * x) / (1 + k * Math.abs(x))
+  }
+  return curve
+}
+
+function crushCurve(amount: number): Float32Array<ArrayBuffer> | null {
+  if (amount < 0.01) return null
+  const bits = Math.max(2, 16 - amount * 13)
+  const levels = Math.pow(2, bits - 1)
+  const n = 2048
+  const curve = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1
+    curve[i] = Math.round(x * levels) / levels
   }
   return curve
 }
@@ -91,10 +106,10 @@ export class AudioEngine {
     this.comp = ctx.createDynamicsCompressor()
     this.makeup = ctx.createGain()
     this.trim = ctx.createGain()
-    this.trim.gain.value = 0.55 // headroom: many voices can stack up
+    this.trim.gain.value = 0.5 // headroom: many voices can stack up
     this.masterGain = ctx.createGain()
     this.limiter = ctx.createDynamicsCompressor()
-    this.limiter.threshold.value = -1.5
+    this.limiter.threshold.value = -3
     this.limiter.knee.value = 0
     this.limiter.ratio.value = 20
     this.limiter.attack.value = 0.002
@@ -224,6 +239,8 @@ export class AudioEngine {
     strip.filter.frequency.setTargetAtTime(Math.min(20 * Math.pow(1000, p.cutoff), this.ctx.sampleRate / 2 - 100), t, 0.01)
     strip.filter.Q.setTargetAtTime(0.5 + p.reso * 14, t, 0.01)
     strip.shaper.curve = driveCurve(p.drive)
+    strip.crusher.curve = crushCurve(p.crush)
+    strip.hp.frequency.setTargetAtTime(20 * Math.pow(150, p.hp), t, 0.01)
     strip.gain.gain.setTargetAtTime(this.soundAudible(g, s) ? p.volume : 0, t, 0.01)
     strip.pan.pan.setTargetAtTime(p.pan, t, 0.01)
     strip.sendRev.gain.setTargetAtTime(p.reverb, t, 0.01)
@@ -238,17 +255,22 @@ export class AudioEngine {
     const bus = this.buses[g]!
     st = {
       input: ctx.createGain(),
+      hp: ctx.createBiquadFilter(),
       filter: ctx.createBiquadFilter(),
       shaper: ctx.createWaveShaper(),
+      crusher: ctx.createWaveShaper(),
       gain: ctx.createGain(),
       pan: ctx.createStereoPanner(),
       sendRev: ctx.createGain(),
       sendDel: ctx.createGain(),
       analyser: null,
     }
+    st.hp.type = 'highpass'
+    st.hp.frequency.value = 20
+    st.hp.Q.value = 0.7
     st.filter.type = 'lowpass'
     st.shaper.oversample = '2x'
-    st.input.connect(st.filter).connect(st.shaper).connect(st.gain).connect(st.pan).connect(bus.input)
+    st.input.connect(st.hp).connect(st.filter).connect(st.shaper).connect(st.crusher).connect(st.gain).connect(st.pan).connect(bus.input)
     st.pan.connect(st.sendRev).connect(this.reverbIn)
     st.pan.connect(st.sendDel).connect(this.delayIn)
     this.strips.set(key, st)
@@ -285,7 +307,7 @@ export class AudioEngine {
       ratio: Math.pow(2, (p.pitch + note) / 12),
       p,
       noise: this.noise,
-      buffer: snd.sampleId ? (sampleBuffers.get(snd.sampleId) ?? null) : null,
+      buffer: this.sampleFor(snd),
       len,
     })
     if (this.liveBend) voice.bend(this.liveBend)
@@ -299,6 +321,11 @@ export class AudioEngine {
   /** silence the speakers without touching the mix (meters and bounces are unaffected) */
   setMuted(muted: boolean): void {
     this.outMute.gain.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.01)
+  }
+
+  private sampleFor(snd: Sound): AudioBuffer | null {
+    const b = snd.sampleId ? (sampleBuffers.get(snd.sampleId) ?? null) : null
+    return b && snd.params.reverse >= 0.5 ? reversedBuffer(b) : b
   }
 
   /** pitch wheel / touch strip bend in cents for new and sustained voices */

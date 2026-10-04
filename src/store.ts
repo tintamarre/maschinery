@@ -715,12 +715,16 @@ export const PARAM_META: Record<keyof SoundParams, { label: string; min: number;
   end: { label: 'End', min: 0, max: 1, step: 0.002, fmt: pct },
   velSens: { label: 'Vel Sens', min: 0, max: 1, step: 0.01, fmt: pct },
   choke: { label: 'Choke', min: 0, max: 8, step: 1, fmt: (v) => (v ? GROUP_NAMES[v - 1]! : 'Off') },
-  gate: { label: 'Mode', min: 0, max: 1, step: 1, fmt: (v) => (v ? 'Gate' : 'One-shot') },
+  gate: { label: 'Mode', min: 0, max: 2, step: 1, fmt: (v) => ['One-shot', 'Gate', 'Loop'][Math.round(v)] ?? '' },
+  hp: { label: 'Low cut', min: 0, max: 1, step: 0.005, fmt: (v) => (v < 0.01 ? 'Off' : cutoffHz(v)) },
+  crush: { label: 'Crush', min: 0, max: 1, step: 0.01, fmt: (v) => (v < 0.01 ? 'Off' : pct(v)) },
+  reverse: { label: 'Reverse', min: 0, max: 1, step: 1, fmt: (v) => (v ? 'On' : 'Off') },
 }
 
 const SOUND_PAGES: (keyof SoundParams)[][] = [
   ['pitch', 'attack', 'decay', 'tone', 'drive', 'cutoff', 'reso', 'volume'],
   ['pan', 'reverb', 'delay', 'velSens', 'choke', 'gate', 'start', 'end'],
+  ['hp', 'crush', 'reverse'],
 ]
 
 function soundKnob(key: keyof SoundParams): KnobDef {
@@ -736,7 +740,7 @@ function knob(label: string, value: number, min: number, max: number, step: numb
 
 const EMPTY: KnobDef = { label: '', value: 0, min: 0, max: 1, step: 0.01, def: 0, text: '', set: () => {} }
 
-export const pageCount = computed(() => (ui.view === 'sound' || ui.view === 'mixer' || ui.view === 'master' ? 2 : 1))
+export const pageCount = computed(() => (ui.view === 'sound' ? 3 : ui.view === 'mixer' || ui.view === 'master' ? 2 : 1))
 
 export const knobs = computed<KnobDef[]>(() => {
   const m = project.master
@@ -745,10 +749,14 @@ export const knobs = computed<KnobDef[]>(() => {
   const tempoKnob = knob('Tempo', project.tempo, 40, 240, 0.5, 100, (v) => v.toFixed(1), setTempo)
   const swingKnob = knob('Swing', project.swing, 50, 75, 1, 50, (v) => v + '%', setSwing)
 
-  if (ui.view === 'sound') return SOUND_PAGES[page]!.map(soundKnob)
+  if (ui.view === 'sound') {
+    const ks = SOUND_PAGES[page]!.map(soundKnob)
+    while (ks.length < 8) ks.push(EMPTY)
+    return ks
+  }
 
   if (ui.view === 'sample') {
-    return (['start', 'end', 'pitch', 'attack', 'decay', 'gate', 'volume', 'pan'] as (keyof SoundParams)[]).map(soundKnob)
+    return (['start', 'end', 'pitch', 'attack', 'decay', 'gate', 'reverse', 'volume'] as (keyof SoundParams)[]).map(soundKnob)
   }
 
   if (ui.view === 'mixer') {
@@ -796,7 +804,7 @@ export const knobs = computed<KnobDef[]>(() => {
 export const knobTitle = computed(() => {
   const page = Math.min(ui.page, pageCount.value - 1)
   switch (ui.view) {
-    case 'sound': return `Sound ${ui.sound + 1} · ${currentSound.value.name}`
+    case 'sound': return `Sound ${ui.sound + 1} · ${currentSound.value.name} · ${['tone & filter', 'mix & sends', 'low cut & crush'][page]}`
     case 'sample': return `Sampler · ${currentSound.value.name}`
     case 'mixer': return page === 0 ? 'Mixer · group volumes' : 'Mixer · group pans'
     case 'master': return page === 0 ? 'Master · timing & effects' : 'Master · echo & setup'

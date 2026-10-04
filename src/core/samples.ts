@@ -33,6 +33,23 @@ async function dbGet(id: string): Promise<ArrayBuffer | undefined> {
   })
 }
 
+const reversed = new WeakMap<AudioBuffer, AudioBuffer>()
+
+/** cached time-reversed copy of a buffer */
+export function reversedBuffer(buf: AudioBuffer): AudioBuffer {
+  let r = reversed.get(buf)
+  if (!r) {
+    r = new AudioBuffer({ length: buf.length, numberOfChannels: buf.numberOfChannels, sampleRate: buf.sampleRate })
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const src = buf.getChannelData(c)
+      const dst = r.getChannelData(c)
+      for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i]!
+    }
+    reversed.set(buf, r)
+  }
+  return r
+}
+
 export function newSampleId(): string {
   return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 }
