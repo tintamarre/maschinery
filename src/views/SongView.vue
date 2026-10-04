@@ -20,8 +20,7 @@ const total = () => project.song.reduce((a, s) => a + s.bars, 0)
         <select v-model.number="s.scene">
           <option v-for="n in NUM_SCENES" :key="n" :value="n - 1">Scene {{ n }}</option>
         </select>
-        <input v-model.number="s.bars" type="number" min="1" max="64" class="mono" />
-        <span class="sub">bars</span>
+        <input v-model.number="s.bars" type="number" min="1" max="64" class="mono" title="Bars" />
         <button class="btn" @click="moveSongSection(i, -1)">▲</button>
         <button class="btn" @click="moveSongSection(i, 1)">▼</button>
         <button class="btn danger" @click="removeSongSection(i)">✕</button>
@@ -34,10 +33,11 @@ const total = () => project.song.reduce((a, s) => a + s.bars, 0)
 .sg { display: flex; flex-direction: column; gap: 8px; }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 p { margin: 0; }
-.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
-.row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; background: #0b1216; border: 1px solid #14212a; }
+.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; }
+.row { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 6px; background: #0b1216; border: 1px solid #14212a; }
 .row.now { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, #0b1216); }
 .n { width: 22px; color: #5d7280; }
-input[type='number'] { width: 52px; }
-.row .btn { padding: 4px 7px; }
+input[type='number'] { width: 44px; }
+.row .btn { padding: 4px 5px; min-width: 22px; }
+.row select { min-width: 0; flex: 1; }
 </style>

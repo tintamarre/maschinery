@@ -793,6 +793,17 @@ export const knobs = computed<KnobDef[]>(() => {
   ].map((k, i) => (i === 4 ? { ...k, label: 'Sound Vol' } : k))
 })
 
+export const knobTitle = computed(() => {
+  const page = Math.min(ui.page, pageCount.value - 1)
+  switch (ui.view) {
+    case 'sound': return `Sound ${ui.sound + 1} · ${currentSound.value.name}`
+    case 'sample': return `Sampler · ${currentSound.value.name}`
+    case 'mixer': return page === 0 ? 'Mixer · group volumes' : 'Mixer · group pans'
+    case 'master': return page === 0 ? 'Master · timing & effects' : 'Master · echo & setup'
+    default: return `Perform · group ${currentGroup.value.name}`
+  }
+})
+
 /** MIDI CC 70-77 (and 16-23) map to the 8 knobs */
 function midiCc(num: number, value: number): void {
   if (num === 1) { stripInput(value / 127, true); return }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, toRaw, watch, watchEffect } from 'vue'
-import { BAR, NUM_PATTERNS, STEP } from '../core/constants'
+import { BAR, NUM_PATTERNS, STEP, soundColor } from '../core/constants'
 import { addEvent, removeEventsIn } from '../core/pattern'
 import { SUSTAINED } from '../core/voices'
 import {
@@ -63,8 +63,12 @@ function drawGrid() {
     const sound = grp.sounds[s]!
     ctx.fillStyle = s === ui.sound ? '#13222b' : s % 2 ? '#0a1014' : '#0c1318'
     ctx.fillRect(0, y, width.value, ROW_H)
+    ctx.fillStyle = soundColor(sound.engine)
+    ctx.globalAlpha = sound.mute ? 0.25 : s === ui.sound ? 1 : 0.6
+    ctx.fillRect(2, y + 3, 3, ROW_H - 6)
     ctx.fillStyle = sound.mute ? '#4a5560' : s === ui.sound ? '#ffffff' : '#8ea3b0'
-    ctx.fillText(`${s + 1} ${sound.name}`.slice(0, 14), 6, y + ROW_H / 2)
+    ctx.globalAlpha = 1
+    ctx.fillText(`${s + 1} ${sound.name}`.slice(0, 14), 9, y + ROW_H / 2)
   }
   for (let i = 0; i <= steps; i++) {
     const x = LABEL_W + i * cw
@@ -85,7 +89,7 @@ function drawGrid() {
     const w = sustained ? Math.max(4, Math.min((e.l / STEP) * cw - 1, pat.bars * BAR / STEP * cw - (x - LABEL_W))) : Math.max(3, cw - 1.5)
     const y = HEAD_H + e.s * ROW_H + 2
     ctx.globalAlpha = 0.3 + (0.7 * e.v) / 127
-    ctx.fillStyle = grp.color
+    ctx.fillStyle = soundColor(sound.engine)
     ctx.beginPath()
     ctx.roundRect(x + 0.5, y, w, ROW_H - 4, 2)
     ctx.fill()
@@ -120,7 +124,7 @@ function drawVel() {
     if (e.s !== ui.sound) continue
     const x = LABEL_W + (e.t / STEP) * cw
     const h = (e.v / 127) * (VEL_H - 6)
-    ctx.fillStyle = currentGroup.value.color
+    ctx.fillStyle = soundColor(currentGroup.value.sounds[ui.sound]!.engine)
     ctx.globalAlpha = 0.85
     ctx.fillRect(x + 1, VEL_H - 2 - h, Math.max(3, Math.min(cw - 2, 8)), h)
     ctx.globalAlpha = 1

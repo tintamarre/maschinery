@@ -89,16 +89,18 @@ function onDrop(e: DragEvent) {
 .pad.blink { animation: pb 0.45s steps(2) infinite; }
 @keyframes pb { 50% { filter: brightness(1.7); } }
 .label {
-  font-size: clamp(9px, 1.5vw, 12px);
+  font-size: 11px;
   font-weight: 700;
   padding: 0 3px 7px;
   color: color-mix(in srgb, #fff calc(40% + var(--lvl) * 60%), #9a9aa4);
   text-shadow: 0 1px 2px #000;
-  line-height: 1.1;
+  line-height: 1.05;
   text-align: center;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   max-width: 100%;
 }
 .sub {

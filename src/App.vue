@@ -20,7 +20,7 @@ import SettingsView from './views/SettingsView.vue'
 import SongView from './views/SongView.vue'
 import SoundView from './views/SoundView.vue'
 import {
-  PAD_MODES, currentGroup, cycleMode, knobs, padDown, padUp, pageCount, play, playback, project, redo, releaseAllPads, selectGroup,
+  PAD_MODES, currentGroup, currentPattern, knobTitle, cycleMode, knobs, padDown, padUp, pageCount, play, playback, project, redo, releaseAllPads, selectGroup,
   setMode, setNoteRepeat, setOutputMute, setTempo, setView, settings, tapTempo, toggleRecord, ui, undo, type ViewId,
 } from './store'
 
@@ -43,6 +43,8 @@ const viewComp = {
 }
 
 const modeLabels: Record<string, string> = { pad: 'Pad', keyboard: 'Keys', chords: 'Chords', step: 'Step', scene: 'Scene', pattern: 'Pattern' }
+
+const vuLevel = computed(() => Math.round(Math.min(1, Math.sqrt(playback.master)) * 24))
 
 const position = computed(() =>
   playback.playing ? `${String(playback.bar).padStart(2, '0')}.${playback.beat}` : '--.-',
@@ -165,21 +167,24 @@ onUnmounted(() => {
     <header class="top">
       <div class="brand"><b>MASCHINERY</b><span>MK3</span></div>
       <div class="readouts mono">
-        <div class="ro"><small>Project</small><span>{{ project.name }}</span></div>
-        <div class="ro"><small>BPM</small><span>{{ project.tempo.toFixed(1) }}</span></div>
-        <div class="ro"><small>Bar</small><span>{{ position }}</span></div>
-        <div class="ro"><small>Group</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}</span></div>
+        <div class="ro wide"><small>Project</small><span>{{ project.name }}</span></div>
+        <div class="ro big"><small>BPM</small><span>{{ project.tempo.toFixed(1) }}</span></div>
+        <div class="ro big"><small>Bar · Beat</small><span :class="{ run: playback.playing }">{{ position }}</span></div>
+        <div class="ro"><small>Group · Pattern</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}<em>{{ currentPattern.bars }} bar{{ currentPattern.bars > 1 ? 's' : '' }}</em></span></div>
       </div>
-      <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
-      <div class="vu"><i :style="{ width: Math.min(100, Math.sqrt(playback.master) * 100) + '%' }" /></div>
+      <div class="vu" title="Master level"><i v-for="n in 24" :key="n" :class="{ lit: n <= vuLevel, warm: n > 16, hot: n > 21 }" /></div>
+      <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output (meters keep running)" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
     </header>
 
     <div class="main">
       <aside class="left">
+        <div class="cap">Screen</div>
         <nav class="views">
           <HwButton v-for="v in views" :key="v.id" :label="v.label" :on="ui.view === v.id" @click="setView(v.id)" />
         </nav>
+        <div class="cap">Group</div>
         <GroupButtons class="groups-box" />
+        <div class="cap">Pad mode</div>
         <div class="modes">
           <HwButton v-for="m in PAD_MODES" :key="m" :label="modeLabels[m]!" :on="ui.mode === m" @click="setMode(m)" />
         </div>
@@ -190,11 +195,15 @@ onUnmounted(() => {
           <component :is="viewComp[ui.view]" />
         </section>
         <section class="lcd knobs">
-          <Knob v-for="(k, i) in knobs" :key="i" :k="k" />
-          <div v-if="pageCount > 1" class="pager">
-            <button class="chip" :class="{ on: ui.page === 0 }" @click="ui.page = 0">1</button>
-            <button class="chip" :class="{ on: ui.page === 1 }" @click="ui.page = 1">2</button>
+          <div class="ktitle">
+            <h3>{{ knobTitle }}</h3>
+            <div v-if="pageCount > 1" class="pager">
+              <span class="sub">Page</span>
+              <button class="chip" :class="{ on: ui.page === 0 }" @click="ui.page = 0">1</button>
+              <button class="chip" :class="{ on: ui.page === 1 }" @click="ui.page = 1">2</button>
+            </div>
           </div>
+          <Knob v-for="(k, i) in knobs" :key="i" :k="k" />
         </section>
         <Transport class="transport-box" />
       </main>
@@ -245,14 +254,22 @@ onUnmounted(() => {
 }
 .brand { display: flex; align-items: baseline; gap: 6px; letter-spacing: 0.22em; font-size: 14px; }
 .brand span { font-size: 10px; color: var(--g); letter-spacing: 0.1em; font-weight: 800; }
-.readouts { display: flex; gap: 10px; flex: 1; }
+.readouts { display: flex; gap: 10px; flex: 1; min-width: 0; }
 .ro { display: flex; flex-direction: column; min-width: 56px; padding: 2px 8px; background: var(--lcd); border-radius: 5px; border: 1px solid #000; }
 .ro small { font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d7280; }
-.ro span { font-size: 14px; color: #cfe0ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.ro span { font-size: 14px; color: #cfe0ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.ro.wide { min-width: 130px; }
+.ro.big { min-width: 96px; }
+.ro.big span { font-size: 22px; line-height: 1.15; color: var(--g); }
+.ro.big span.run { text-shadow: 0 0 10px color-mix(in srgb, var(--g) 70%, transparent); }
+.ro em { font-style: normal; font-size: 10px; color: #5d7280; margin-left: 7px; }
 .spk { flex: none; min-width: 64px; padding-top: 12px; }
 .spk.on::before { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
-.vu { width: 120px; height: 8px; background: #05090c; border-radius: 4px; overflow: hidden; }
-.vu i { display: block; height: 100%; background: linear-gradient(90deg, #38e07b, #ffd60a 70%, #ff4d4d); }
+.vu { display: flex; gap: 2px; height: 22px; align-items: stretch; padding: 4px 6px; background: var(--lcd); border-radius: 5px; border: 1px solid #000; }
+.vu i { width: 4px; border-radius: 1px; background: #11181d; }
+.vu i.lit { background: #38e07b; box-shadow: 0 0 4px #38e07b88; }
+.vu i.lit.warm { background: #ffd60a; box-shadow: 0 0 4px #ffd60a88; }
+.vu i.lit.hot { background: #ff4d4d; box-shadow: 0 0 4px #ff4d4d88; }
 
 .main {
   display: grid;
@@ -264,14 +281,18 @@ onUnmounted(() => {
   border: 1px solid #000;
   box-shadow: 0 1px 0 #3a3a42 inset, 0 20px 40px #0008;
 }
-.left { display: flex; flex-direction: column; gap: 14px; }
+.left { display: flex; flex-direction: column; gap: 7px; }
+.cap { margin-top: 6px; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #6a6a76; }
+.cap:first-child { margin-top: 0; }
 .views { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-content: start; }
 .views :deep(.hw), .modes :deep(.hw) { min-width: 0; padding-left: 2px; padding-right: 2px; width: 100%; }
 .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .center { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .screen { padding: 8px 12px; height: 376px; overflow: hidden; }
-.knobs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; padding: 8px 10px; position: relative; }
-.pager { position: absolute; right: 8px; top: -26px; display: flex; gap: 3px; }
+.knobs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; padding: 8px 10px 6px; }
+.ktitle { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; height: 22px; }
+.pager { display: flex; gap: 3px; align-items: center; }
+.pager .chip { height: 20px; min-width: 22px; }
 .right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .padrow { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: stretch; }
 
@@ -298,9 +319,11 @@ onUnmounted(() => {
 .portrait .views { order: 2; grid-template-columns: repeat(5, 1fr); }
 .portrait .groups-box { order: 3; grid-template-columns: repeat(8, 1fr); }
 .portrait .modes { order: 4; grid-template-columns: repeat(6, 1fr); }
+.portrait .cap { display: none; }
 .portrait .transport-box { order: 5; }
 .portrait .right { order: 6; width: 100%; max-width: 440px; margin: 0 auto; }
 .portrait .right :deep(.ov) { display: none; }
-.portrait .readouts .ro:nth-child(4) { display: none; }
+.portrait .readouts .ro:nth-child(1), .portrait .readouts .ro:nth-child(4) { display: none; }
+.portrait .top { gap: 10px; }
 .portrait .vu { display: none; }
 </style>

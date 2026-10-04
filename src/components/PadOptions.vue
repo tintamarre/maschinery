@@ -46,7 +46,7 @@ import { currentPattern, project, settings, ui } from '../store'
       <span class="hint">Scene launch · Duplicate+pad captures current patterns</span>
     </template>
     <template v-else>
-      <span class="hint">Drop an audio file on a pad to load a sample</span>
+      <span class="hint">{{ project.groups[ui.group]!.name }} · pad {{ ui.sound + 1 }} · {{ project.groups[ui.group]!.sounds[ui.sound]!.name }} <i class="drop">drop audio on a pad to sample</i></span>
     </template>
   </div>
 </template>
@@ -58,5 +58,6 @@ select { background: #17171b; color: #d0d0d8; border: 1px solid #2c2c32; border-
 .mini { min-width: 22px; height: 22px; border: 1px solid #2c2c32; border-radius: 4px; background: #17171b; color: #ccc; font-size: 11px; }
 .mini.on { background: var(--g); color: #000; border-color: var(--g); }
 b { min-width: 20px; text-align: center; color: #fff; }
-.hint { opacity: 0.7; text-transform: none; letter-spacing: 0; }
+.hint { opacity: 0.85; text-transform: none; letter-spacing: 0; }
+.drop { font-style: normal; opacity: 0.5; margin-left: 8px; }
 </style>

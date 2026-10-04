@@ -59,6 +59,19 @@ export const CHORD_QUALITIES = ['Triads', '7ths', 'Power', 'Sus']
 /** Pad index 0..15 (pad 1 = bottom-left) to computer keyboard key. */
 export const PAD_KEYS = ['z', 'x', 'c', 'v', 'a', 's', 'd', 'f', 'q', 'w', 'e', 'r', '1', '2', '3', '4']
 
+import type { EngineId } from './types'
+
+/** pad / event colour by sound type, so a kit reads at a glance */
+export const ENGINE_COLORS: Record<EngineId, string> = {
+  kick: '#ff4d6d', snare: '#ff8a3d', clap: '#ffb703', rim: '#ffd60a', hat: '#f4e04d', crash: '#b8e04d',
+  tom: '#5ed38a', cowbell: '#2ec4b6', perc: '#4cc9f0', shaker: '#4895ef',
+  bass: '#7b6cf6', lead: '#c77dff', pluck: '#e05dd6', pad: '#ff7eb6', sample: '#e9ecef',
+}
+
+export function soundColor(engine: EngineId): string {
+  return ENGINE_COLORS[engine]
+}
+
 export function noteName(semitone: number): string {
   const n = ((semitone % 12) + 12) % 12
   return NOTE_NAMES[n]! + (Math.floor(semitone / 12) + 3)

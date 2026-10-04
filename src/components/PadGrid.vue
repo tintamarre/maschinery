@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import Pad, { type PadState } from './Pad.vue'
-import { NOTE_NAMES, PAD_KEYS, STEP } from '../core/constants'
+import { NOTE_NAMES, PAD_KEYS, STEP, soundColor } from '../core/constants'
 import {
   assignSampleFile, chordName, currentGroup, currentPattern, keyboardNote, padDown, padUp, playback, settings, ui,
 } from '../store'
@@ -17,7 +17,7 @@ function stateFor(i: number): PadState {
   switch (ui.mode) {
     case 'pad': {
       const s = grp.sounds[i]!
-      return { label: s.name, sub: key, color, on: true, selected: ui.sound === i, muted: s.mute || (grp.sounds.some((x) => x.solo) && !s.solo), level }
+      return { label: s.name, sub: key, color: soundColor(s.engine), on: true, selected: ui.sound === i, muted: s.mute || (grp.sounds.some((x) => x.solo) && !s.solo), level }
     }
     case 'keyboard': {
       const n = keyboardNote(i)
@@ -32,7 +32,7 @@ function stateFor(i: number): PadState {
       const active = pat.events.some((e) => e.s === ui.sound && Math.floor(e.t / STEP) === step)
       const playStep = Math.floor((playback.pos[ui.group] ?? 0) / STEP)
       return {
-        label: String(step + 1), sub: key, color, on: active, level,
+        label: String(step + 1), sub: key, color: soundColor(grp.sounds[ui.sound]!.engine), on: active, level,
         head: playback.playing && playStep === step,
         muted: step >= pat.bars * 16,
       }
