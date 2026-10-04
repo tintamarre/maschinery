@@ -261,8 +261,10 @@ export function chordName(i: number): string {
   if (q === 'Sus') return root + 'sus4'
   const third = notes[1]! - notes[0]!
   const fifth = notes[2]! - notes[0]!
-  let name = root + (third === 3 ? 'm' : third === 4 ? '' : '?')
+  let name = root
   if (fifth === 6) name += '°'
+  else if (third === 3) name += 'm'
+  else if (third !== 4) name += '?'
   if (q === '7ths') name += '7'
   return name
 }
