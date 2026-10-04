@@ -4,7 +4,7 @@ import { BAR, NUM_PATTERNS, STEP, soundColor } from '../core/constants'
 import { addEvent, removeEventsIn } from '../core/pattern'
 import { SUSTAINED } from '../core/voices'
 import {
-  clearCurrentPattern, clearCurrentSound, currentGroup, currentPattern, doubleCurrent, patternBars, playback, previewSound,
+  PARAM_META, clearCurrentPattern, clearCurrentSound, deleteLane, laneLabel, currentGroup, currentPattern, doubleCurrent, patternBars, playback, previewSound,
   quantTicks, quantizeCurrent, selectPattern, selectSound, setEventVelocity, settings, shiftCurrent, snapshot, ui,
 } from '../store'
 
@@ -107,6 +107,51 @@ function drawGrid() {
   }
 }
 
+const LANE_COLORS = ['#4cc9f0', '#ffd60a', '#7bd389', '#ff8a3d', '#c77dff', '#ff4d6d']
+
+function laneRange(target: string): [number, number] {
+  if (target.startsWith('g.')) return target === 'g.pan' ? [-1, 1] : [0, 1]
+  const meta = PARAM_META[target.slice(target.indexOf('.') + 1) as keyof typeof PARAM_META]
+  return meta ? [meta.min, meta.max] : [0, 1]
+}
+
+function drawAuto(ctx: CanvasRenderingContext2D) {
+  const pat = currentPattern.value
+  const len = pat.bars * BAR
+  const gridW = width.value - LABEL_W
+  ctx.font = '9px ui-monospace, Menlo, monospace'
+  ctx.textBaseline = 'top'
+  ctx.fillStyle = '#5d7280'
+  if (!pat.auto.length) {
+    ctx.fillText('AUTOMATION', 6, 4)
+    ctx.fillText('Arm Auto, press Play, then move a knob', LABEL_W + 8, VEL_H / 2 - 5)
+    return
+  }
+  pat.auto.forEach((lane, i) => {
+    const col = LANE_COLORS[i % LANE_COLORS.length]!
+    ctx.fillStyle = col
+    ctx.fillText('✕ ' + laneLabel(ui.group, lane.target).slice(0, 14), 4, 3 + i * 12)
+    const [lo, hi] = laneRange(lane.target)
+    const yOf = (v: number) => VEL_H - 4 - ((v - lo) / (hi - lo || 1)) * (VEL_H - 8)
+    ctx.strokeStyle = col
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    const pts = lane.points
+    if (pts.length) {
+      ctx.moveTo(LABEL_W, yOf(pts[0]!.v))
+      for (const pt of pts) ctx.lineTo(LABEL_W + (pt.t / len) * gridW, yOf(pt.v))
+      ctx.lineTo(LABEL_W + gridW, yOf(pts[pts.length - 1]!.v))
+    }
+    ctx.stroke()
+    ctx.fillStyle = col
+    for (const pt of pts) ctx.fillRect(LABEL_W + (pt.t / len) * gridW - 1.5, yOf(pt.v) - 1.5, 3, 3)
+  })
+  if (playback.playing) {
+    ctx.fillStyle = '#ffffffcc'
+    ctx.fillRect(LABEL_W + ((playback.pos[ui.group] ?? 0) / len) * gridW, 0, 1.5, VEL_H)
+  }
+}
+
 function drawVel() {
   const c = vel.value
   if (!c) return
@@ -116,6 +161,10 @@ function drawVel() {
   const cw = cellW()
   ctx.fillStyle = '#070b0e'
   ctx.fillRect(0, 0, width.value, VEL_H)
+  if (ui.autoView) {
+    drawAuto(ctx)
+    return
+  }
   ctx.fillStyle = '#5d7280'
   ctx.font = '10px ui-monospace, Menlo, monospace'
   ctx.textBaseline = 'top'
@@ -215,6 +264,13 @@ function velAt(e: PointerEvent) {
 
 function velDown(e: PointerEvent) {
   const { x, y } = velAt(e)
+  if (ui.autoView) {
+    if (x < LABEL_W) {
+      const lane = currentPattern.value.auto[Math.floor((y - 3) / 12)]
+      if (lane) deleteLane(lane.target)
+    }
+    return
+  }
   const cw = cellW()
   let best: import('../core/types').NoteEvent | null = null
   let bestD = Infinity
@@ -260,8 +316,12 @@ function velUp() { velTarget = null }
         <button class="btn" @click="doubleCurrent">×2</button>
         <button class="btn" title="Shift pattern one step left" @click="shiftCurrent(-1)">◀</button>
         <button class="btn" title="Shift pattern one step right" @click="shiftCurrent(1)">▶</button>
-        <button class="btn danger" @click="clearCurrentSound">Clear sound</button>
-        <button class="btn danger" @click="clearCurrentPattern">Clear pattern</button>
+        <button class="btn danger" @click="clearCurrentSound">Clr sound</button>
+        <button class="btn danger" @click="clearCurrentPattern">Clr pattern</button>
+      </div>
+      <div class="chips">
+        <button class="chip" :class="{ on: !ui.autoView }" @click="ui.autoView = false">Velocity</button>
+        <button class="chip" :class="{ on: ui.autoView }" title="Show recorded automation lanes" @click="ui.autoView = true">Auto{{ currentPattern.auto.length ? ' ' + currentPattern.auto.length : '' }}</button>
       </div>
     </div>
     <div ref="wrap" class="canvases">
@@ -273,8 +333,9 @@ function velUp() { velTarget = null }
 
 <style scoped>
 .pv { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; }
-.tools { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.tools { display: flex; flex-wrap: wrap; gap: 5px 10px; align-items: center; }
 .chips { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.tools .btn { padding: 4px 8px; }
 .canvases { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: none; }
 canvas { display: block; touch-action: none; border-radius: 4px; cursor: crosshair; }
 canvas.vel { cursor: ns-resize; }

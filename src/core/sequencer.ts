@@ -1,5 +1,6 @@
 import { BAR, NUM_GROUPS, PPQ, REPEAT_RATES } from './constants'
 import type { AudioEngine } from './engine'
+import { laneValueAt } from './pattern'
 import type { NoteEvent, Pattern, Project, Settings } from './types'
 
 const LOOKAHEAD = 0.14
@@ -10,6 +11,7 @@ export interface SeqHooks {
   setGroupPattern(g: number, idx: number): void
   addEvent(g: number, pattern: number, ev: NoteEvent): void
   eraseAt(g: number, s: number, tick: number): void
+  applyAuto?(g: number, target: string, value: number, time: number): void
   onSongIndex?(idx: number): void
 }
 
@@ -72,6 +74,7 @@ export class Sequencer {
   eraseHeld = new Set<number>()
   stutter = 0
 
+  private lastAuto = new Map<string, number>()
   private running = false
   private nextTime = 0
   private worker: Worker | null = null
@@ -132,6 +135,7 @@ export class Sequencer {
     this.recording = !!opts.record
     this.stopClock()
     this.pos.fill(0)
+    this.lastAuto.clear()
     this.ring.length = 0
     this.songIdx = -1
     this.songBarsLeft = 0
@@ -309,6 +313,17 @@ export class Sequencer {
 
       for (const s of this.eraseHeld) {
         if (Math.floor(s / 16) === g) this.hooks.eraseAt(g, s % 16, pos)
+      }
+
+      if (pos % 4 === 0 && pat.auto?.length && this.hooks.applyAuto) {
+        for (const lane of pat.auto) {
+          const v = laneValueAt(lane, pos, len)
+          const key = g + lane.target
+          if (v !== null && this.lastAuto.get(key) !== v) {
+            this.lastAuto.set(key, v)
+            this.hooks.applyAuto(g, lane.target, v, time)
+          }
+        }
       }
 
       const evs = this.eventsAt(pat, pos)

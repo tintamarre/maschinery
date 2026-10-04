@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BAR, SCALES, STEP } from './constants'
-import { addEvent, clearSound, doublePattern, newPattern, quantizeEvents, removeEventsIn, setBars, shiftEvents, toggleStep } from './pattern'
+import { addEvent, clearSound, doublePattern, laneValueAt, newPattern, quantizeEvents, removeEventsIn, setBars, shiftEvents, toggleStep, writeAutoPoint } from './pattern'
 import { KITS, cloneProject, createDemoProject, createProject, migrate } from './project'
 import { swingOffset, unswing } from './sequencer'
 
@@ -122,5 +122,31 @@ describe('scales', () => {
       expect(notes[0], name).toBe(0)
       expect(Math.max(...notes), name).toBeLessThan(12)
     }
+  })
+})
+
+describe('automation', () => {
+  const lane = { target: 's0.cutoff', points: [{ t: 0, v: 0 }, { t: 192, v: 1 }] }
+
+  it('interpolates and wraps around the loop', () => {
+    expect(laneValueAt(lane, 96, BAR)).toBeCloseTo(0.5)
+    expect(laneValueAt(lane, 288, BAR)).toBeCloseTo(0.5)
+    expect(laneValueAt({ target: 'x', points: [] }, 10, BAR)).toBeNull()
+    expect(laneValueAt({ target: 'x', points: [{ t: 50, v: 0.3 }] }, 10, BAR)).toBe(0.3)
+  })
+
+  it('a new take overwrites the points it passed over', () => {
+    const p = newPattern(1)
+    for (const t of [0, 24, 48, 72, 96]) writeAutoPoint(p, 'g.volume', t, t / 100, null)
+    writeAutoPoint(p, 'g.volume', 72, 0.9, 24)
+    expect(p.auto[0]!.points.map((pt) => pt.t)).toEqual([0, 24, 72, 96])
+    expect(p.auto[0]!.points.find((pt) => pt.t === 72)!.v).toBe(0.9)
+  })
+
+  it('doubling keeps the lanes in step with the notes', () => {
+    const p = newPattern(1)
+    writeAutoPoint(p, 'g.pan', 10, 0.2, null)
+    doublePattern(p)
+    expect(p.auto[0]!.points.map((pt) => pt.t)).toEqual([10, 10 + BAR])
   })
 })

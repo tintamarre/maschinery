@@ -42,9 +42,22 @@ export interface NoteEvent {
   n: number // semitone offset (keyboard / chords mode)
 }
 
+/** one recorded parameter move; v is in the parameter's own units */
+export interface AutoPoint {
+  t: number
+  v: number
+}
+
+/** target is `s<sound>.<param>` for a sound parameter or `g.<param>` for a group parameter */
+export interface AutoLane {
+  target: string
+  points: AutoPoint[]
+}
+
 export interface Pattern {
   bars: number // 1..4
   events: NoteEvent[]
+  auto: AutoLane[]
   rev: number // bumped on every edit, used by the sequencer index cache
 }
 

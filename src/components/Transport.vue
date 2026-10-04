@@ -19,6 +19,7 @@ import {
       <HwButton label="Follow" :on="settings.follow" @click="settings.follow = !settings.follow" />
       <HwButton label="Song" :on="ui.songMode" title="Play the arranger instead of the current patterns" @click="ui.songMode = !ui.songMode" />
       <HwButton label="Repeat" :on="ui.noteRepeat" title="B" @click="setNoteRepeat(!ui.noteRepeat)" />
+      <HwButton label="Auto" :on="ui.autoWrite" title="Auto Write: record knob moves into the pattern while playing" @click="ui.autoWrite = !ui.autoWrite" />
       <HwButton label="Fixed" :on="ui.fixedVel" title="G · fixed velocity" @click="ui.fixedVel = !ui.fixedVel" />
     </div>
     <div class="row">

@@ -217,7 +217,7 @@ export function migrate(raw: unknown): Project {
         }),
         patterns: Array.from({ length: NUM_PATTERNS }, (_, pi) => {
           const sp = sg.patterns?.[pi]
-          return sp ? { bars: sp.bars ?? 1, events: sp.events ?? [], rev: 0 } : newPattern(1)
+          return sp ? { bars: sp.bars ?? 1, events: sp.events ?? [], auto: sp.auto ?? [], rev: 0 } : newPattern(1)
         }),
       }
     }),

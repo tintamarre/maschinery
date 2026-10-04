@@ -8,7 +8,7 @@ import { AudioEngine } from './core/engine'
 import { initMidi, setMidiChannel, setMidiInput, type MidiPort } from './core/midi'
 import {
   addEvent, clearPattern, clearSound, copyPatternInto, doublePattern, newPattern, quantizeEvents, removeEventsIn,
-  setBars, shiftEvents, toggleStep, touch,
+  removeLane, setBars, shiftEvents, toggleStep, touch, writeAutoPoint,
 } from './core/pattern'
 import {
   BASE_PARAMS, KITS, applyKit, cloneProject, createDemoProject, createProject, makeSound, migrate, type Kit,
@@ -19,7 +19,7 @@ import {
 } from './core/samples'
 import { Sequencer } from './core/sequencer'
 import type { Voice } from './core/voices'
-import type { EngineId, KnobDef, NoteEvent, Project, Settings, SoundParams } from './core/types'
+import type { AutoLane, EngineId, KnobDef, NoteEvent, Project, Settings, SoundParams } from './core/types'
 
 export type PadMode = 'pad' | 'keyboard' | 'chords' | 'step' | 'scene' | 'pattern'
 export type ViewId = 'pattern' | 'sound' | 'sample' | 'mixer' | 'master' | 'scenes' | 'song' | 'browser' | 'file' | 'settings'
@@ -97,6 +97,8 @@ export const ui = reactive({
   busy: '',
   muted: false,
   snapArm: false,
+  autoWrite: false,
+  autoView: false,
   snap: new Array<number>(NUM_GROUPS).fill(-1),
 })
 
@@ -134,7 +136,7 @@ export function toast(msg: string): void {
 let engine: AudioEngine | null = null
 let seq: Sequencer | null = null
 
-interface Snap { g: number; p: number; bars: number; events: NoteEvent[] }
+interface Snap { g: number; p: number; bars: number; events: NoteEvent[]; auto: AutoLane[] }
 const undoStack: Snap[] = []
 const redoStack: Snap[] = []
 let lastSnapKey = ''
@@ -142,7 +144,7 @@ let lastSnapAt = 0
 
 function takeSnap(g: number, p: number): Snap {
   const pat = project.groups[g]!.patterns[p]!
-  return { g, p, bars: pat.bars, events: pat.events.map((e) => ({ ...e })) }
+  return { g, p, bars: pat.bars, events: pat.events.map((e) => ({ ...e })), auto: pat.auto.map((l) => ({ target: l.target, points: l.points.map((pt) => ({ ...pt })) })) }
 }
 
 /** call before mutating a pattern; `coalesce` merges bursts (live recording) into one undo step */
@@ -166,6 +168,7 @@ function restore(s: Snap): void {
   const pat = project.groups[s.g]!.patterns[s.p]!
   pat.bars = s.bars
   pat.events = s.events.map((e) => ({ ...e }))
+  pat.auto = s.auto.map((l) => ({ target: l.target, points: l.points.map((pt) => ({ ...pt })) }))
   touch(pat)
 }
 
@@ -201,6 +204,18 @@ export function ensureAudio(): AudioEngine {
     addEvent: (g, p, ev) => {
       snapshot(g, p, 2500)
       addEvent(project.groups[g]!.patterns[p]!, ev)
+    },
+    applyAuto: (g, target, value, time) => {
+      const grp = project.groups[g]!
+      if (target.startsWith('g.')) {
+        ;(grp as unknown as Record<string, number>)[target.slice(2)] = value
+        engine?.refreshGroup(g, time)
+      } else {
+        const dot = target.indexOf('.')
+        const si = Number(target.slice(1, dot))
+        ;(grp.sounds[si]!.params as unknown as Record<string, number>)[target.slice(dot + 1)] = value
+        engine?.refreshSound(g, si, time)
+      }
     },
     eraseAt: (g, s, tick) => {
       const pat = project.groups[g]!.patterns[project.groups[g]!.pattern]!
@@ -283,15 +298,47 @@ export function chordName(i: number): string {
 // sound / group / mix actions
 // ---------------------------------------------------------------------------
 
+const lastAutoWrite = new Map<string, { tick: number; pattern: number }>()
+
+/** while Auto Write is armed and the sequencer is running, record the move into the group's current pattern */
+function writeAuto(g: number, target: string, value: number): void {
+  if (!ui.autoWrite || !seq || !seq.playing || seq.countInLeft > 0) return
+  const tick = seq.recordPosition(g, 0)
+  if (tick === null) return
+  const grp = project.groups[g]!
+  const key = g + target
+  const last = lastAutoWrite.get(key)
+  if (last && last.pattern === grp.pattern && tick === last.tick) return
+  snapshot(g, grp.pattern, 2500)
+  const sameTake = last && last.pattern === grp.pattern && Math.abs(tick - last.tick) < 48
+  writeAutoPoint(grp.patterns[grp.pattern]!, target, tick, value, sameTake ? last.tick : null)
+  lastAutoWrite.set(key, { tick, pattern: grp.pattern })
+}
+
+export function laneLabel(g: number, target: string): string {
+  if (target.startsWith('g.')) return `Group ${GROUP_NAMES[g]} · ${target.slice(2)}`
+  const dot = target.indexOf('.')
+  const si = Number(target.slice(1, dot))
+  const key = target.slice(dot + 1) as keyof SoundParams
+  return `${project.groups[g]!.sounds[si]?.name ?? si + 1} · ${PARAM_META[key]?.label ?? key}`
+}
+
+export function deleteLane(target: string): void {
+  snapshot()
+  removeLane(currentPattern.value, target)
+}
+
 export function setSoundParam<K extends keyof SoundParams>(g: number, s: number, key: K, value: SoundParams[K]): void {
   const snd = project.groups[g]!.sounds[s]!
   snd.params[key] = value
   engine?.refreshSound(g, s)
+  writeAuto(g, `s${s}.${key}`, value as number)
 }
 
 export function setGroupParam(g: number, key: 'volume' | 'pan' | 'reverb' | 'delay', value: number): void {
   project.groups[g]![key] = value
   engine?.refreshGroup(g)
+  writeAuto(g, `g.${key}`, value)
 }
 
 export function setMaster<K extends keyof Project['master']>(key: K, value: Project['master'][K]): void {
@@ -397,7 +444,7 @@ export function selectGroup(g: number): void {
     const src = project.groups[ui.group]!
     const dst = project.groups[g]!
     dst.sounds = JSON.parse(JSON.stringify(src.sounds))
-    dst.patterns = src.patterns.map((p) => ({ bars: p.bars, rev: 0, events: p.events.map((e) => ({ ...e })) }))
+    dst.patterns = src.patterns.map((p) => ({ bars: p.bars, rev: 0, events: p.events.map((e) => ({ ...e })), auto: p.auto.map((l) => ({ target: l.target, points: l.points.map((pt) => ({ ...pt })) })) }))
     engine?.refreshMix()
     toast(`Group ${GROUP_NAMES[ui.group]} duplicated to ${GROUP_NAMES[g]}`)
     ui.duplicate = false

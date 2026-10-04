@@ -202,10 +202,10 @@ export class AudioEngine {
     return clamp((60 / p.tempo) * div.beats, 0.01, 3.9)
   }
 
-  refreshGroup(g: number): void {
+  refreshGroup(g: number, at?: number): void {
     const grp = this.getProject().groups[g]!
     const bus = this.buses[g]!
-    const t = this.ctx.currentTime
+    const t = at ?? this.ctx.currentTime
     bus.input.gain.setTargetAtTime(this.groupAudible(g) ? grp.volume : 0, t, 0.01)
     bus.pan.pan.setTargetAtTime(grp.pan, t, 0.01)
     bus.sendRev.gain.setTargetAtTime(grp.reverb, t, 0.01)
@@ -231,11 +231,11 @@ export class AudioEngine {
     return this.groupAudible(g) && !snd.mute && (!anySolo || snd.solo)
   }
 
-  refreshSound(g: number, s: number): void {
+  refreshSound(g: number, s: number, at?: number): void {
     const strip = this.strips.get(g * 16 + s)
     if (!strip) return
     const p = this.getProject().groups[g]!.sounds[s]!.params
-    const t = this.ctx.currentTime
+    const t = at ?? this.ctx.currentTime
     strip.filter.frequency.setTargetAtTime(Math.min(20 * Math.pow(1000, p.cutoff), this.ctx.sampleRate / 2 - 100), t, 0.01)
     strip.filter.Q.setTargetAtTime(0.5 + p.reso * 14, t, 0.01)
     strip.shaper.curve = driveCurve(p.drive)

@@ -1,8 +1,8 @@
 import { BAR, STEP } from './constants'
-import type { NoteEvent, Pattern } from './types'
+import type { AutoLane, NoteEvent, Pattern } from './types'
 
 export function newPattern(bars = 1): Pattern {
-  return { bars, events: [], rev: 0 }
+  return { bars, events: [], auto: [], rev: 0 }
 }
 
 export function touch(p: Pattern): void {
@@ -45,18 +45,22 @@ export function clearSound(p: Pattern, s: number): void {
 
 export function clearPattern(p: Pattern): void {
   p.events = []
+  p.auto = []
   touch(p)
 }
 
 export function setBars(p: Pattern, bars: number): void {
   p.bars = bars
   p.events = p.events.filter((e) => e.t < bars * BAR)
+  for (const lane of p.auto) lane.points = lane.points.filter((pt) => pt.t < bars * BAR)
+  p.auto = p.auto.filter((l) => l.points.length > 0)
   touch(p)
 }
 
 export function copyPatternInto(src: Pattern, dst: Pattern): void {
   dst.bars = src.bars
   dst.events = src.events.map((e) => ({ ...e }))
+  dst.auto = (src.auto ?? []).map((l) => ({ target: l.target, points: l.points.map((pt) => ({ ...pt })) }))
   touch(dst)
 }
 
@@ -77,6 +81,7 @@ export function doublePattern(p: Pattern): void {
   const len = patternLength(p)
   const copy = p.events.map((e) => ({ ...e, t: e.t + len }))
   p.events.push(...copy)
+  for (const lane of p.auto) lane.points.push(...lane.points.map((pt) => ({ t: pt.t + len, v: pt.v })))
   p.bars = Math.min(4, p.bars * 2)
   touch(p)
 }
@@ -98,4 +103,50 @@ export function randomizeVelocity(p: Pattern, amount: number): void {
 /** sorted copy of the events of a pattern, handy for rendering */
 export function sorted(p: Pattern): NoteEvent[] {
   return [...p.events].sort((a, b) => a.t - b.t)
+}
+
+// ---- automation -----------------------------------------------------------------
+
+/** linearly interpolated lane value at a tick, wrapping around the loop end; null for an empty lane */
+export function laneValueAt(lane: AutoLane, tick: number, len: number): number | null {
+  const pts = lane.points
+  if (!pts.length) return null
+  if (pts.length === 1) return pts[0]!.v
+  let prev: { t: number; v: number } | undefined
+  let next: { t: number; v: number } | undefined
+  for (const pt of pts) {
+    if (pt.t <= tick) prev = pt
+    else { next = pt; break }
+  }
+  const first = pts[0]!
+  const last = pts[pts.length - 1]!
+  const a = prev ?? { t: last.t - len, v: last.v }
+  const b = next ?? { t: first.t + len, v: first.v }
+  const span = b.t - a.t
+  if (span <= 0) return a.v
+  return a.v + ((b.v - a.v) * (tick - a.t)) / span
+}
+
+/** write a point; overwrites the points passed since the previous write so a take replaces the old curve */
+export function writeAutoPoint(p: Pattern, target: string, tick: number, value: number, prevTick: number | null): void {
+  let lane = p.auto.find((l) => l.target === target)
+  if (!lane) {
+    lane = { target, points: [] }
+    p.auto.push(lane)
+    lane = p.auto[p.auto.length - 1]!
+  }
+  if (prevTick !== null) {
+    const len = patternLength(p)
+    lane.points = lane.points.filter((pt) =>
+      prevTick <= tick ? !(pt.t > prevTick && pt.t <= tick) : !(pt.t > prevTick && pt.t < len) && !(pt.t >= 0 && pt.t <= tick),
+    )
+  }
+  lane.points.push({ t: tick, v: value })
+  lane.points.sort((x, y) => x.t - y.t)
+  touch(p)
+}
+
+export function removeLane(p: Pattern, target: string): void {
+  p.auto = p.auto.filter((l) => l.target !== target)
+  touch(p)
 }

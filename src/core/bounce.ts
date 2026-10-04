@@ -31,6 +31,18 @@ export async function bounceToWav(source: Project, settings: Settings, opts: Bou
     setGroupPattern: (g, idx) => { project.groups[g]!.pattern = idx },
     addEvent: () => {},
     eraseAt: () => {},
+    applyAuto: (g, target, value, time) => {
+      const grp = project.groups[g]!
+      if (target.startsWith('g.')) {
+        ;(grp as unknown as Record<string, number>)[target.slice(2)] = value
+        engine.refreshGroup(g, time)
+      } else {
+        const dot = target.indexOf('.')
+        const si = Number(target.slice(1, dot))
+        ;(grp.sounds[si]!.params as unknown as Record<string, number>)[target.slice(dot + 1)] = value
+        engine.refreshSound(g, si, time)
+      }
+    },
   })
   seq.runOffline(bars * BAR, opts.song && project.song.length > 0)
   const buf = await ctx.startRendering()
