@@ -8,13 +8,11 @@ import {
 } from '../store'
 
 const keys = Object.keys(PARAM_META) as (keyof SoundParams)[]
-const pages = [keys.slice(0, 0), keys]
 const activeKeys = computed(() =>
   ui.page === 0
     ? ['pitch', 'attack', 'decay', 'tone', 'drive', 'cutoff', 'reso', 'volume']
     : ['pan', 'reverb', 'delay', 'velSens', 'choke', 'gate', 'start', 'end'],
 )
-void pages
 
 function onInput(key: keyof SoundParams, e: Event) {
   setSoundParam(ui.group, ui.sound, key, Number((e.target as HTMLInputElement).value))

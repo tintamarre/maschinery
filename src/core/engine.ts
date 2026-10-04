@@ -58,6 +58,7 @@ export class AudioEngine {
   private comp: DynamicsCompressorNode
   private makeup: GainNode
   private trim: GainNode
+  private outMute: GainNode
   private masterGain: GainNode
   private limiter: DynamicsCompressorNode
   readonly masterAnalyser: AnalyserNode
@@ -98,12 +99,13 @@ export class AudioEngine {
     this.limiter.ratio.value = 20
     this.limiter.attack.value = 0.002
     this.limiter.release.value = 0.08
+    this.outMute = ctx.createGain()
     this.masterAnalyser = ctx.createAnalyser()
     this.masterAnalyser.fftSize = 1024
     this.scope = this.masterAnalyser
 
     this.dry.connect(this.gate).connect(this.perf).connect(this.comp).connect(this.makeup).connect(this.trim).connect(this.masterGain)
-    this.masterGain.connect(this.limiter).connect(this.masterAnalyser).connect(ctx.destination)
+    this.masterGain.connect(this.limiter).connect(this.masterAnalyser).connect(this.outMute).connect(ctx.destination)
 
     // reverb send
     this.reverbIn = ctx.createGain()
@@ -294,6 +296,11 @@ export class AudioEngine {
     return voice
   }
 
+  /** silence the speakers without touching the mix (meters and bounces are unaffected) */
+  setMuted(muted: boolean): void {
+    this.outMute.gain.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.01)
+  }
+
   /** pitch wheel / touch strip bend in cents for new and sustained voices */
   setBend(cents: number): void {
     this.liveBend = cents
@@ -307,7 +314,7 @@ export class AudioEngine {
     o.frequency.value = accent ? 1760 : 1180
     g.gain.setValueAtTime(volume * 0.5, t)
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.04)
-    o.connect(g).connect(this.ctx.destination)
+    o.connect(g).connect(this.outMute)
     o.start(t)
     o.stop(t + 0.05)
   }

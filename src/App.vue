@@ -21,7 +21,7 @@ import SongView from './views/SongView.vue'
 import SoundView from './views/SoundView.vue'
 import {
   PAD_MODES, currentGroup, cycleMode, knobs, padDown, padUp, pageCount, play, playback, project, redo, releaseAllPads, selectGroup,
-  setMode, setNoteRepeat, setTempo, setView, settings, tapTempo, toggleRecord, ui, undo, type ViewId,
+  setMode, setNoteRepeat, setOutputMute, setTempo, setView, settings, tapTempo, toggleRecord, ui, undo, type ViewId,
 } from './store'
 
 const views: { id: ViewId; label: string }[] = [
@@ -170,6 +170,7 @@ onUnmounted(() => {
         <div class="ro"><small>Bar</small><span>{{ position }}</span></div>
         <div class="ro"><small>Group</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}</span></div>
       </div>
+      <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
       <div class="vu"><i :style="{ width: Math.min(100, Math.sqrt(playback.master) * 100) + '%' }" /></div>
     </header>
 
@@ -248,6 +249,8 @@ onUnmounted(() => {
 .ro { display: flex; flex-direction: column; min-width: 56px; padding: 2px 8px; background: var(--lcd); border-radius: 5px; border: 1px solid #000; }
 .ro small { font-size: 8px; text-transform: uppercase; letter-spacing: 0.1em; color: #5d7280; }
 .ro span { font-size: 14px; color: #cfe0ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.spk { flex: none; min-width: 64px; padding-top: 12px; }
+.spk.on::before { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
 .vu { width: 120px; height: 8px; background: #05090c; border-radius: 4px; overflow: hidden; }
 .vu i { display: block; height: 100%; background: linear-gradient(90deg, #38e07b, #ffd60a 70%, #ff4d4d); }
 

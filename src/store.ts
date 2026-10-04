@@ -95,6 +95,7 @@ export const ui = reactive({
   midiReady: false,
   micRecording: false,
   busy: '',
+  muted: false,
 })
 
 export const playback = reactive({
@@ -207,9 +208,16 @@ export function ensureAudio(): AudioEngine {
       }
     },
   })
+  engine.setMuted(ui.muted)
   hasAudio.ready = true
   rafLoop()
   return engine
+}
+
+/** master output mute (speakers only) */
+export function setOutputMute(muted: boolean): void {
+  ui.muted = muted
+  engine?.setMuted(muted)
 }
 
 export function getEngine(): AudioEngine | null {
