@@ -83,10 +83,10 @@ function reset() {
 </template>
 
 <style scoped>
-.st { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; align-content: start; }
-section { display: flex; flex-direction: column; gap: 6px; }
+.st { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px; align-content: start; }
+section { display: flex; flex-direction: column; gap: 4px; }
 section.wide { grid-column: 1 / -1; }
-.row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.row { display: flex; flex-wrap: wrap; gap: 5px 10px; align-items: center; }
 input[type='number'] { width: 60px; }
 .keys { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 22px; font-size: 10px; }
 .keys div { display: grid; grid-template-columns: 10.5rem 1fr; gap: 8px; align-items: baseline; white-space: nowrap; }
