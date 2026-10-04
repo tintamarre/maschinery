@@ -1,5 +1,5 @@
 import { computed, reactive, toRaw, watch } from 'vue'
-import { bounceBars, bounceToWav } from './core/bounce'
+import { bounceBars, bounceToWav, renderProject } from './core/bounce'
 import {
   BAR, CHORD_QUALITIES, DELAY_DIVS, GROUP_NAMES, NOTE_NAMES, NUM_GROUPS, NUM_PATTERNS, NUM_SCENES, NUM_SOUNDS,
   QUANTIZE, REPEAT_RATES, SCALES, STEP, clamp, noteName,
@@ -922,6 +922,75 @@ export async function assignSampleFile(g: number, s: number, file: File): Promis
     toast(`Loaded ${snd.name}`)
   } catch {
     toast('Could not decode that file')
+  } finally {
+    ui.busy = ''
+  }
+}
+
+/** drop or pick several files: they fill consecutive pads starting at `start` */
+export async function assignSampleFiles(g: number, start: number, files: File[]): Promise<void> {
+  const list = files.slice(0, 16 - start)
+  for (let i = 0; i < list.length; i++) await assignSampleFile(g, start + i, list[i]!)
+  if (files.length > list.length) toast(`Only ${list.length} pads left in this group, ${files.length - list.length} file(s) skipped`)
+  else if (list.length > 1) toast(`Loaded ${list.length} samples from pad ${start + 1}`)
+}
+
+/** render the group's current pattern (with effects) into the selected pad as a new sample */
+export async function resampleGroupToPad(): Promise<void> {
+  ui.busy = 'Resampling…'
+  try {
+    ensureAudio()
+    const buf = await renderProject(toRaw(project), toRaw(settings), { song: false, loops: 1, onlyGroup: ui.group })
+    const id = await addSampleFromBuffer(trimSilence(buf, 0.003))
+    const snd = currentSound.value
+    snd.engine = 'sample'
+    snd.sampleId = id
+    snd.name = `Resample ${currentGroup.value.name}${currentGroup.value.pattern + 1}`
+    Object.assign(snd.params, { start: 0, end: 1, gate: 0, reverse: 0, pitch: 0 })
+    engine!.refreshSound(ui.group, ui.sound)
+    toast(`Resampled to pad ${ui.sound + 1}`)
+  } catch {
+    toast('Resample failed')
+  } finally {
+    ui.busy = ''
+  }
+}
+
+// ---- kit packs: public/kits/index.json lists packs of audio files ----------------------------
+
+export interface KitPack {
+  name: string
+  files: { name: string; url: string }[]
+}
+
+export async function fetchKitPacks(): Promise<KitPack[]> {
+  try {
+    const base = import.meta.env.BASE_URL
+    const res = await fetch(`${base}kits/index.json`, { cache: 'no-cache' })
+    if (!res.ok) return []
+    const json = (await res.json()) as { kits?: KitPack[] }
+    return (json.kits ?? []).map((k) => ({ name: k.name, files: k.files.map((f) => ({ name: f.name, url: /^https?:/.test(f.url) ? f.url : `${base}kits/${f.url}` })) }))
+  } catch {
+    return []
+  }
+}
+
+export async function loadKitPack(g: number, pack: KitPack): Promise<void> {
+  ui.busy = `Loading ${pack.name}…`
+  try {
+    ensureAudio()
+    const files = pack.files.slice(0, 16)
+    for (let i = 0; i < files.length; i++) {
+      const res = await fetch(files[i]!.url)
+      const id = await addSampleFromData(await res.arrayBuffer())
+      const snd = makeSound(files[i]!.name, 'sample')
+      snd.sampleId = id
+      project.groups[g]!.sounds[i] = snd
+    }
+    engine!.refreshMix()
+    toast(`${pack.name} loaded into group ${GROUP_NAMES[g]}`)
+  } catch {
+    toast('Could not load that pack')
   } finally {
     ui.busy = ''
   }

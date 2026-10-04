@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref, watchEffect } from 'vue'
 import { sampleBuffers } from '../core/samples'
 import {
-  assignSampleFile, chopSample, currentGroup, currentSound, previewSound, setEngine, setSoundParam, toggleMic, ui,
+  assignSampleFiles, chopSample, resampleGroupToPad, currentGroup, currentSound, previewSound, setEngine, setSoundParam, toggleMic, ui,
 } from '../store'
 
 const cv = ref<HTMLCanvasElement | null>(null)
@@ -93,8 +93,8 @@ function move(e: PointerEvent) {
 function up() { drag = null }
 
 function onFile(e: Event) {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (f) void assignSampleFile(ui.group, ui.sound, f)
+  const files = [...((e.target as HTMLInputElement).files ?? [])]
+  if (files.length) void assignSampleFiles(ui.group, ui.sound, files)
   ;(e.target as HTMLInputElement).value = ''
 }
 </script>
@@ -104,15 +104,16 @@ function onFile(e: Event) {
     <div class="bar">
       <h3>Sampler · pad {{ ui.sound + 1 }} · {{ currentSound.name }}</h3>
       <button v-if="currentSound.engine !== 'sample'" class="btn primary" @click="setEngine(ui.group, ui.sound, 'sample')">Make this pad a sampler</button>
-      <button class="btn" @click="file?.click()">Load file…</button>
-      <input ref="file" type="file" accept="audio/*" hidden @change="onFile" />
+      <button class="btn" title="Several files fill consecutive pads" @click="file?.click()">Load files…</button>
+      <input ref="file" type="file" accept="audio/*" multiple hidden @change="onFile" />
       <button class="btn" :class="{ primary: ui.micRecording }" @click="toggleMic">{{ ui.micRecording ? '■ Stop recording' : '● Record mic' }}</button>
       <button class="btn" @click="previewSound()">Audition</button>
       <button class="btn" @click="chopSample('equal')">Chop 16 equal</button>
       <button class="btn" @click="chopSample('transients')">Chop by transients</button>
+      <button class="btn" title="Render the current pattern of this group, with effects, into this pad" @click="resampleGroupToPad">Resample group</button>
     </div>
     <canvas ref="cv" class="wave" @pointerdown.prevent="down" @pointermove="move" @pointerup="up" @pointercancel="up" />
-    <p class="sub">Drag the markers to set start and end. Chopping spreads slices over the 16 pads of the group. Audio files can also be dropped straight onto a pad.</p>
+    <p class="sub">Drag the markers to set start and end. Chopping spreads slices over the 16 pads of the group. Drop one or several audio files on a pad: several files fill consecutive pads. “Resample group” renders this group's pattern into the selected pad.</p>
   </div>
 </template>
 

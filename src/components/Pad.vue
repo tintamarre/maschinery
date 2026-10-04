@@ -14,7 +14,7 @@ export interface PadState {
 }
 
 const props = defineProps<{ state: PadState }>()
-const emit = defineEmits<{ down: [velocity: number]; up: []; drop: [file: File] }>()
+const emit = defineEmits<{ down: [velocity: number]; up: []; drop: [files: File[]] }>()
 
 const style = computed(() => {
   const s = props.state
@@ -38,8 +38,8 @@ function onDown(e: PointerEvent) {
 }
 
 function onDrop(e: DragEvent) {
-  const f = e.dataTransfer?.files?.[0]
-  if (f) emit('drop', f)
+  const files = [...(e.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith('audio/') || /\.(wav|mp3|ogg|flac|m4a|aif|aiff)$/i.test(f.name))
+  if (files.length) emit('drop', files)
 }
 </script>
 

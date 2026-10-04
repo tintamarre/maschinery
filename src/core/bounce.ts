@@ -8,18 +8,22 @@ import type { Project, Settings } from './types'
 export interface BounceOptions {
   song: boolean
   loops: number // pattern loops when not in song mode
+  /** render a single group only (used for resampling) */
+  onlyGroup?: number
 }
 
 /** total bars a bounce will contain */
 export function bounceBars(project: Project, opts: BounceOptions): number {
   if (opts.song && project.song.length) return project.song.reduce((a, s) => a + s.bars, 0)
-  const longest = Math.max(1, ...project.groups.map((g) => g.patterns[g.pattern]!.bars))
+  const groups = opts.onlyGroup === undefined ? project.groups : [project.groups[opts.onlyGroup]!]
+  const longest = Math.max(1, ...groups.map((g) => g.patterns[g.pattern]!.bars))
   return longest * opts.loops
 }
 
-/** Render the project to a stereo WAV file using an OfflineAudioContext. */
-export async function bounceToWav(source: Project, settings: Settings, opts: BounceOptions): Promise<Blob> {
+/** Render the project offline and return the stereo buffer. */
+export async function renderProject(source: Project, settings: Settings, opts: BounceOptions): Promise<AudioBuffer> {
   const project = cloneProject(source)
+  if (opts.onlyGroup !== undefined) project.groups.forEach((g, i) => { if (i !== opts.onlyGroup) g.mute = true })
   const sr = 44100
   const bars = bounceBars(project, opts)
   const secPerTick = 60 / (project.tempo * PPQ)
@@ -45,7 +49,11 @@ export async function bounceToWav(source: Project, settings: Settings, opts: Bou
     },
   })
   seq.runOffline(bars * BAR, opts.song && project.song.length > 0)
-  const buf = await ctx.startRendering()
-  const wav = encodeWav([buf.getChannelData(0), buf.getChannelData(1)], sr)
-  return new Blob([wav], { type: 'audio/wav' })
+  return ctx.startRendering()
+}
+
+/** Render the project to a stereo WAV file using an OfflineAudioContext. */
+export async function bounceToWav(source: Project, settings: Settings, opts: BounceOptions): Promise<Blob> {
+  const buf = await renderProject(source, settings, opts)
+  return new Blob([encodeWav([buf.getChannelData(0), buf.getChannelData(1)], buf.sampleRate)], { type: 'audio/wav' })
 }

@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import Pad, { type PadState } from './Pad.vue'
 import { NOTE_NAMES, PAD_KEYS, STEP, soundColor } from '../core/constants'
 import {
-  assignSampleFile, chordName, currentGroup, currentPattern, keyboardNote, padDown, padUp, playback, settings, ui,
+  assignSampleFiles, chordName, currentGroup, currentPattern, keyboardNote, padDown, padUp, playback, settings, ui,
 } from '../store'
 
 // top row = pads 13-16 (like the hardware, pad 1 is bottom-left)
@@ -47,8 +47,8 @@ function stateFor(i: number): PadState {
   }
 }
 
-function onDrop(i: number, f: File) {
-  void assignSampleFile(ui.group, i, f)
+function onDrop(i: number, files: File[]) {
+  void assignSampleFiles(ui.group, i, files)
 }
 
 const states = computed(() => order.map((i) => stateFor(i)))
@@ -62,7 +62,7 @@ const states = computed(() => order.map((i) => stateFor(i)))
       :state="states[n]!"
       @down="(v) => padDown(i, v)"
       @up="padUp(i)"
-      @drop="(f) => onDrop(i, f)"
+      @drop="(files) => onDrop(i, files)"
     />
   </div>
 </template>
