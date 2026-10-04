@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ENGINES, ENGINE_LABELS } from '../core/project'
 import type { EngineId, SoundParams } from '../core/types'
 import {
-  PARAM_META, copySound, currentGroup, currentSound, getEngine, previewSound, renameSound, setEngine, setSoundParam, toggleMuteSound,
+  PARAM_META, copySound, currentGroup, snapshotSlot, currentSound, getEngine, previewSound, renameSound, setEngine, setSoundParam, toggleMuteSound,
   toggleSoloSound, ui,
 } from '../store'
 
@@ -80,6 +80,11 @@ onUnmounted(() => cancelAnimationFrame(raf))
         <button class="btn" :class="{ primary: currentSound.solo }" @click="toggleSoloSound(ui.group, ui.sound)">Solo</button>
         <button class="btn" title="Copy this sound to the next pad" @click="copySound(ui.group, ui.sound, (ui.sound + 1) % 16)">Copy → next</button>
       </div>
+      <div class="snaps">
+        <span class="sub">Snapshots</span>
+        <button v-for="n in 8" :key="n" class="chip" :class="{ on: ui.snap[ui.group] === n - 1, dim: !currentGroup.snapshots[n - 1] }" :title="currentGroup.snapshots[n - 1] ? 'Recall (all 16 sounds)' : 'Store the current sound settings here'" @click="snapshotSlot(ui.group, n - 1)">{{ n }}</button>
+        <button class="chip" :class="{ on: ui.snapArm }" title="Store into the next slot you click" @click="ui.snapArm = !ui.snapArm">Store</button>
+      </div>
       <canvas ref="scope" width="300" height="48" class="scope" />
     </div>
     <div class="params">
@@ -100,6 +105,7 @@ onUnmounted(() => cancelAnimationFrame(raf))
 .line input { width: 130px; }
 .who h3 { margin-bottom: 2px; }
 .acts { display: flex; gap: 5px; flex-wrap: wrap; }
+.snaps { display: flex; gap: 3px; align-items: center; }
 .scope { margin-left: auto; border-radius: 4px; border: 1px solid #16222a; max-width: 100%; }
 .params { margin-top: 2px; display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 2px 16px; }
 label { display: grid; grid-template-columns: 54px 1fr 46px; align-items: center; gap: 6px; font-size: 11px; color: #5d7280; padding: 0; }

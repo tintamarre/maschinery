@@ -99,6 +99,11 @@ describe('project', () => {
     expect(partial.groups[0]!.sounds).toHaveLength(16)
   })
 
+  it('old projects without snapshots get 8 empty slots', () => {
+    const p = migrate({ groups: [{ sounds: [] }] })
+    expect(p.groups[0]!.snapshots).toEqual(new Array(8).fill(null))
+  })
+
   it('clones deeply', () => {
     const a = createProject()
     const b = cloneProject(a)

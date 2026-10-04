@@ -92,6 +92,7 @@ export function newGroup(i: number, kit: Kit = KITS[0]!): Group {
     sounds: [],
     patterns: Array.from({ length: NUM_PATTERNS }, () => newPattern(1)),
     pattern: 0,
+    snapshots: Array.from({ length: 8 }, () => null),
   }
   applyKit(g, kit)
   return g
@@ -209,6 +210,7 @@ export function migrate(raw: unknown): Project {
       return {
         ...bg,
         ...sg,
+        snapshots: Array.from({ length: 8 }, (_, i) => sg.snapshots?.[i] ?? null),
         sounds: Array.from({ length: NUM_SOUNDS }, (_, si) => {
           const ss = sg.sounds?.[si]
           return ss ? { ...bg.sounds[si]!, ...ss, params: { ...BASE_PARAMS, ...ss.params } } : bg.sounds[si]!

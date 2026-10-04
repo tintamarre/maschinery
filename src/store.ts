@@ -96,6 +96,8 @@ export const ui = reactive({
   micRecording: false,
   busy: '',
   muted: false,
+  snapArm: false,
+  snap: new Array<number>(NUM_GROUPS).fill(-1),
 })
 
 export const playback = reactive({
@@ -358,6 +360,30 @@ export function loadSoundPreset(g: number, s: number, kit: Kit, index: number): 
   project.groups[g]!.sounds[s] = makeSound(spec[0], spec[1], spec[2])
   engine?.refreshSound(g, s)
   previewSound(g, s)
+}
+
+export function storeSnapshot(g: number, slot: number): void {
+  project.groups[g]!.snapshots[slot] = project.groups[g]!.sounds.map((s) => ({ ...s.params }))
+  ui.snap[g] = slot
+  toast(`Snapshot ${slot + 1} stored for group ${GROUP_NAMES[g]}`)
+}
+
+export function recallSnapshot(g: number, slot: number): void {
+  const snap = project.groups[g]!.snapshots[slot]
+  if (!snap) { toast(`Snapshot ${slot + 1} is empty`); return }
+  project.groups[g]!.sounds.forEach((s, i) => { if (snap[i]) Object.assign(s.params, snap[i]) })
+  ui.snap[g] = slot
+  engine?.refreshMix()
+}
+
+/** chip click: stores when armed (or when the slot is empty), recalls otherwise */
+export function snapshotSlot(g: number, slot: number): void {
+  if (ui.snapArm || !project.groups[g]!.snapshots[slot]) {
+    storeSnapshot(g, slot)
+    ui.snapArm = false
+  } else {
+    recallSnapshot(g, slot)
+  }
 }
 
 export function previewSound(g = ui.group, s = ui.sound, vel = 110): void {

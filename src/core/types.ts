@@ -60,6 +60,8 @@ export interface Group {
   sounds: Sound[]
   patterns: Pattern[]
   pattern: number // currently playing / edited pattern
+  /** 8 stored sets of sound parameters (one entry per sound), recalled with one click */
+  snapshots: (SoundParams[] | null)[]
 }
 
 export interface SongSection {
