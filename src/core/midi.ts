@@ -17,6 +17,7 @@ let access: MIDIAccess | null = null
 let handlers: MidiHandlers | null = null
 let selected = 'all'
 let channel = 0
+let output: MIDIOutput | null = null
 
 export const midiSupported = typeof navigator !== 'undefined' && 'requestMIDIAccess' in navigator
 
@@ -77,4 +78,34 @@ export function setMidiInput(id: string): void {
 
 export function setMidiChannel(c: number): void {
   channel = c
+}
+
+export function listMidiOutputs(): MidiPort[] {
+  const out: MidiPort[] = []
+  access?.outputs.forEach((o) => out.push({ id: o.id, name: o.name ?? o.id }))
+  return out
+}
+
+export function setMidiOutput(id: string): void {
+  output = null
+  if (!access || id === 'none') return
+  access.outputs.forEach((o) => { if (o.id === id) output = o })
+}
+
+export function hasMidiOutput(): boolean {
+  return output !== null
+}
+
+/** `timestamp` is a performance.now() based time in ms; omit to send immediately */
+export function midiSend(data: number[], timestamp?: number): void {
+  try { output?.send(data, timestamp) } catch { /* port closed */ }
+}
+
+export const MIDI_CLOCK = 0xf8
+export const MIDI_START = 0xfa
+export const MIDI_STOP = 0xfc
+
+/** test hook: inject a fake MIDIAccess */
+export function setMidiAccessForTests(fake: MIDIAccess): void {
+  access = fake
 }

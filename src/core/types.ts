@@ -116,6 +116,10 @@ export interface Settings {
   latency: number // ms, compensation when recording
   midiInput: string // 'all' | 'none' | port id
   midiChannel: number // 0 = omni
+  midiOutput: string // 'none' | port id
+  midiOutChannel: number // 0 = one channel per group (A = 1 ...), else fixed 1..16
+  midiClockOut: boolean
+  midiNoteOut: boolean
   follow: boolean
   songLoop: boolean
 }

@@ -5,7 +5,9 @@ import {
   QUANTIZE, REPEAT_RATES, SCALES, STEP, clamp, noteName,
 } from './core/constants'
 import { AudioEngine } from './core/engine'
-import { initMidi, setMidiChannel, setMidiInput, type MidiPort } from './core/midi'
+import {
+  MIDI_CLOCK, MIDI_START, MIDI_STOP, initMidi, listMidiOutputs, midiSend, setMidiChannel, setMidiInput, setMidiOutput, type MidiPort,
+} from './core/midi'
 import {
   addEvent, clearPattern, clearSound, copyPatternInto, doublePattern, newPattern, quantizeEvents, removeEventsIn,
   removeLane, setBars, shiftEvents, toggleStep, touch, writeAutoPoint,
@@ -19,7 +21,7 @@ import {
 } from './core/samples'
 import { Sequencer } from './core/sequencer'
 import { decodeProject, encodeProject, estimateLatency } from './core/share'
-import type { Voice } from './core/voices'
+import { SUSTAINED, type Voice } from './core/voices'
 import type { AutoLane, EngineId, KnobDef, NoteEvent, Project, Settings, SoundParams } from './core/types'
 
 export type PadMode = 'pad' | 'keyboard' | 'chords' | 'step' | 'scene' | 'pattern'
@@ -38,7 +40,8 @@ const LS_SLOT = 'maschinery:slot:'
 
 const DEFAULT_SETTINGS: Settings = {
   quantize: 3, countIn: 1, metronome: false, metVolume: 0.6, repeatRate: 4, scale: 'Minor', root: 0, octave: 0,
-  latency: 0, midiInput: 'all', midiChannel: 0, follow: true, songLoop: true,
+  latency: 0, midiInput: 'all', midiChannel: 0, midiOutput: 'none', midiOutChannel: 0, midiClockOut: true, midiNoteOut: true,
+  follow: true, songLoop: true,
 }
 
 function readLs<T>(key: string): T | null {
@@ -93,6 +96,7 @@ export const ui = reactive({
   delayThrow: false,
   toast: '',
   midiPorts: [] as MidiPort[],
+  midiOutPorts: [] as MidiPort[],
   midiReady: false,
   micRecording: false,
   busy: '',
@@ -195,6 +199,33 @@ export function redo(): void {
   playback.canRedo = redoStack.length > 0
 }
 
+// ---- MIDI output ---------------------------------------------------------------------------
+
+function midiMs(audioTime: number | undefined): number | undefined {
+  if (audioTime === undefined || !engine) return undefined
+  const ctx = engine.ctx as AudioContext
+  return performance.now() + (audioTime - ctx.currentTime + (ctx.outputLatency || 0)) * 1000
+}
+
+function midiNoteFor(g: number, s: number, note: number): { num: number; ch: number } {
+  const sound = project.groups[g]!.sounds[s]!
+  const num = clamp(SUSTAINED[sound.engine] ? 60 + note : 36 + s, 0, 127)
+  const ch = (settings.midiOutChannel > 0 ? settings.midiOutChannel : g + 1) - 1
+  return { num, ch }
+}
+
+function midiNoteOn(g: number, s: number, note: number, vel: number, audioTime?: number): void {
+  if (!settings.midiNoteOut || settings.midiOutput === 'none') return
+  const { num, ch } = midiNoteFor(g, s, note)
+  midiSend([0x90 | ch, num, clamp(Math.round(vel), 1, 127)], midiMs(audioTime))
+}
+
+function midiNoteOff(g: number, s: number, note: number, audioTime?: number): void {
+  if (!settings.midiNoteOut || settings.midiOutput === 'none') return
+  const { num, ch } = midiNoteFor(g, s, note)
+  midiSend([0x80 | ch, num, 0], midiMs(audioTime))
+}
+
 export function ensureAudio(): AudioEngine {
   if (engine) {
     if (engine.ctx.state === 'suspended') void (engine.ctx as AudioContext).resume()
@@ -207,6 +238,12 @@ export function ensureAudio(): AudioEngine {
     addEvent: (g, p, ev) => {
       snapshot(g, p, 2500)
       addEvent(project.groups[g]!.patterns[p]!, ev)
+    },
+    onClock: (time) => { if (settings.midiClockOut && settings.midiOutput !== 'none') midiSend([MIDI_CLOCK], midiMs(time)) },
+    onTransport: (kind, time) => { if (settings.midiClockOut && settings.midiOutput !== 'none') midiSend([kind === 'start' ? MIDI_START : MIDI_STOP], midiMs(time)) },
+    onNote: (g, s, note, vel, lenSec, time) => {
+      midiNoteOn(g, s, note, vel, time)
+      midiNoteOff(g, s, note, time + lenSec)
     },
     applyAuto: (g, target, value, time) => {
       const grp = project.groups[g]!
@@ -574,6 +611,7 @@ interface Held {
   pattern: number
   start: number
   repeatKeys: number[]
+  notes: number[]
 }
 
 const held = new Map<string, Held>()
@@ -597,11 +635,11 @@ function recordNow(g: number, s: number, vel: number, note: number): NoteEvent |
 /** fire a note live, record it if armed, and track it for release */
 function playLive(key: string, g: number, s: number, notes: number[], vel: number): void {
   const e = eng()
-  const h: Held = { g, s, voices: [], events: [], pattern: project.groups[g]!.pattern, start: e.ctx.currentTime, repeatKeys: [] }
+  const h: Held = { g, s, voices: [], events: [], pattern: project.groups[g]!.pattern, start: e.ctx.currentTime, repeatKeys: [], notes: [] }
   const repeat = ui.noteRepeat
   notes.forEach((note, ni) => {
     const v = e.trigger(g, s, 0, vel, note)
-    if (v) h.voices.push(v)
+    if (v) { h.voices.push(v); h.notes.push(note); midiNoteOn(g, s, note, vel) }
     if (repeat && seq) {
       const rk = s * 1000 + ni * 100 + (note + 60)
       seq.startRepeat(rk, { g, s, vel, note })
@@ -620,6 +658,7 @@ function endHeld(h: Held): void {
   const e = engine
   if (!e) return
   for (const v of h.voices) v.release(e.ctx.currentTime)
+  for (const n of h.notes) midiNoteOff(h.g, h.s, n)
   for (const k of h.repeatKeys) seq?.stopRepeat(k)
   if (h.events.length && seq) {
     const ticks = seq.heldTicks(h.start)
@@ -655,7 +694,7 @@ export function padDown(i: number, velocity = 100, src = 'ptr'): void {
     if (ui.erase) {
       if (seq?.playing) {
         seq.eraseHeld.add(g * 16 + i)
-        held.set(key, { g, s: i, voices: [], events: [], pattern: 0, start: 0, repeatKeys: [] })
+        held.set(key, { g, s: i, voices: [], events: [], pattern: 0, start: 0, repeatKeys: [], notes: [] })
       } else {
         snapshot()
         clearSound(currentPattern.value, i)
@@ -1263,6 +1302,8 @@ export async function enableMidi(): Promise<void> {
     })
     setMidiInput(settings.midiInput)
     setMidiChannel(settings.midiChannel)
+    ui.midiOutPorts = listMidiOutputs()
+    setMidiOutput(settings.midiOutput)
     ui.midiReady = true
   } catch {
     toast('MIDI access denied')
@@ -1272,6 +1313,11 @@ export async function enableMidi(): Promise<void> {
 export function chooseMidiInput(id: string): void {
   settings.midiInput = id
   setMidiInput(id)
+}
+
+export function chooseMidiOutput(id: string): void {
+  settings.midiOutput = id
+  setMidiOutput(id)
 }
 
 export function chooseMidiChannel(c: number): void {

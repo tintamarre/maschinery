@@ -13,6 +13,10 @@ export interface SeqHooks {
   eraseAt(g: number, s: number, tick: number): void
   applyAuto?(g: number, target: string, value: number, time: number): void
   onSongIndex?(idx: number): void
+  /** MIDI clock tick (24 per beat) at audio time `time` */
+  onClock?(time: number): void
+  onTransport?(kind: 'start' | 'stop', time: number): void
+  onNote?(g: number, s: number, note: number, vel: number, lenSec: number, time: number): void
 }
 
 interface TickLog {
@@ -75,6 +79,7 @@ export class Sequencer {
   stutter = 0
 
   private lastAuto = new Map<string, number>()
+  private pendingStartMsg = false
   private running = false
   private nextTime = 0
   private worker: Worker | null = null
@@ -143,9 +148,11 @@ export class Sequencer {
     this.countInLeft = this.recording && s.countIn > 0 ? s.countIn * BAR : 0
     this.playing = true
     this.startClock()
+    this.pendingStartMsg = true
   }
 
   stop(): void {
+    if (this.playing) this.hooks.onTransport?.('stop', this.engine.ctx.currentTime)
     this.playing = false
     this.recording = false
     this.countInLeft = 0
@@ -286,6 +293,12 @@ export class Sequencer {
       if (!this.playing) return
     }
 
+    if (this.pendingStartMsg) {
+      this.pendingStartMsg = false
+      this.hooks.onTransport?.('start', time)
+    }
+    if (tick % 4 === 0) this.hooks.onClock?.(time)
+
     if (settings.metronome && tick % PPQ === 0) this.engine.click(time, tick % BAR === 0, settings.metVolume)
 
     const swingTicks = (proj.swing / 100) * 48 - 24
@@ -333,6 +346,7 @@ export class Sequencer {
           if (this.eraseHeld.has(g * 16 + e.s)) continue
           const t = time + Math.max(0, off)
           this.engine.trigger(g, e.s, t, e.v, e.n, e.l * sec)
+          this.hooks.onNote?.(g, e.s, e.n, e.v, e.l * sec, t)
           this.hits.push({ time: t, g, s: e.s, v: e.v })
         }
       }
@@ -349,6 +363,7 @@ export class Sequencer {
     if (tick % rate !== 0) return
     for (const r of this.repeats.values()) {
       this.engine.trigger(r.g, r.s, time, r.vel, r.note, rate * sec * 0.9)
+      this.hooks.onNote?.(r.g, r.s, r.note, r.vel, rate * sec * 0.9, time)
       this.hits.push({ time, g: r.g, s: r.s, v: r.vel })
       if (record && this.playing) {
         const grp = proj.groups[r.g]!
