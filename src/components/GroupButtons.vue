@@ -9,6 +9,8 @@ import { playback, project, selectGroup, ui } from '../store'
       :key="i"
       class="grp"
       :class="{ on: ui.group === i, muted: g.mute }"
+      :aria-label="`Group ${g.name}`"
+      :aria-pressed="ui.group === i"
       :style="{ '--gc': g.color, '--lvl': playback.groupLevel[i] }"
       @click="selectGroup(i)"
     >

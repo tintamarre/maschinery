@@ -9,8 +9,8 @@ import {
 <template>
   <div class="transport">
     <div class="big">
-      <button class="tbtn rec" :class="{ on: playback.recording, blink: playback.countIn }" title="Enter" @click="toggleRecord"><i>●</i>Rec</button>
-      <button class="tbtn play" :class="{ on: playback.playing }" title="Space" @click="play"><i>▶</i>Play</button>
+      <button class="tbtn rec" :class="{ on: playback.recording, blink: playback.countIn }" :aria-pressed="playback.recording" title="Enter" @click="toggleRecord"><i>●</i>Rec</button>
+      <button class="tbtn play" :class="{ on: playback.playing }" :aria-pressed="playback.playing" title="Space" @click="play"><i>▶</i>Play</button>
       <button class="tbtn" title="Stop and rewind" @click="stop"><i>■</i>Stop</button>
     </div>
     <div class="row">

@@ -1120,9 +1120,9 @@ export function newProject(): void {
   toast('New project')
 }
 
-export function loadDemo(): void {
-  replaceProject(createDemoProject())
-  toast('Demo loaded')
+export function loadDemo(id = 'boombap'): void {
+  replaceProject(createDemoProject(id))
+  toast(`${project.name} loaded`)
 }
 
 export function listSlots(): string[] {

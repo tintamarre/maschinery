@@ -450,7 +450,7 @@ function velUp() { velTarget = null }
       </div>
     </div>
     <div ref="wrap" class="canvases">
-      <canvas ref="cv" @pointerdown.prevent="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp" />
+      <canvas ref="cv" role="img" aria-label="Pattern grid: sounds in rows, steps in columns" @pointerdown.prevent="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp" />
       <canvas ref="vel" class="vel" @pointerdown.prevent="velDown" @pointermove="velMove" @pointerup="velUp" @pointercancel="velUp" />
     </div>
   </div>

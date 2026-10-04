@@ -47,6 +47,8 @@ function onDrop(e: DragEvent) {
   <button
     class="pad"
     :class="{ selected: state.selected, muted: state.muted, blink: state.blink }"
+    :aria-label="`Pad ${state.sub ? state.sub.toUpperCase() + ' ' : ''}${state.label}`"
+    :aria-pressed="state.selected || undefined"
     :style="style"
     @pointerdown.prevent="onDown"
     @pointerup="emit('up')"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BAR, SCALES, STEP } from './constants'
 import { addEvent, clearSound, doublePattern, laneValueAt, newPattern, quantizeEvents, removeEventsIn, setBars, shiftEvents, toggleStep, writeAutoPoint } from './pattern'
-import { KITS, cloneProject, createDemoProject, createProject, migrate } from './project'
+import { DEMOS, KITS, cloneProject, createDemoProject, createProject, migrate } from './project'
 import { swingOffset, unswing } from './sequencer'
 import { decodeProject, encodeProject, estimateLatency } from './share'
 
@@ -186,5 +186,36 @@ describe('latency estimate', () => {
 
   it('needs enough taps', () => {
     expect(estimateLatency([1.0, 1.5], clicks, 0)).toBeNull()
+  })
+})
+
+describe('demo songs', () => {
+  for (const demo of DEMOS) {
+    it(`${demo.name} is a valid, playable project`, () => {
+      const p = demo.make()
+      expect(p.song.length).toBeGreaterThan(0)
+      for (const sec of p.song) {
+        expect(sec.scene).toBeGreaterThanOrEqual(0)
+        expect(sec.scene).toBeLessThan(16)
+        expect(sec.bars).toBeGreaterThan(0)
+      }
+      for (const g of p.groups) {
+        for (const pat of g.patterns) {
+          for (const e of pat.events) {
+            expect(e.t).toBeGreaterThanOrEqual(0)
+            expect(e.t).toBeLessThan(pat.bars * BAR)
+            expect(e.s).toBeGreaterThanOrEqual(0)
+            expect(e.s).toBeLessThan(16)
+            expect(e.v).toBeGreaterThanOrEqual(1)
+            expect(e.v).toBeLessThanOrEqual(127)
+          }
+        }
+      }
+      expect(p.groups.filter((g) => g.patterns.some((pat) => pat.events.length)).length).toBeGreaterThanOrEqual(2)
+    })
+  }
+
+  it('unknown id falls back to the first demo', () => {
+    expect(createDemoProject('nope').name).toBe(DEMOS[0]!.make().name)
   })
 })

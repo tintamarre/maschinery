@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { bounceBars } from '../core/bounce'
+import { DEMOS } from '../core/project'
 import {
   bounce, copyShareLink, deleteSlot, exportProject, importProject, listSlots, loadDemo, loadSlot, newProject, project, saveSlot, ui,
 } from '../store'
@@ -37,8 +38,8 @@ const songBars = () => bounceBars(project, { song: true, loops: 1 })
         <input v-model="name" type="text" placeholder="Project name" @input="project.name = name" />
         <button class="btn primary" @click="save">Save to browser</button>
         <button class="btn" @click="newProject">New</button>
-        <button class="btn" @click="loadDemo">Load demo</button>
       </div>
+      <div class="row"><span class="sub">Demo songs</span><button v-for="d in DEMOS" :key="d.id" class="btn" @click="loadDemo(d.id)">{{ d.name }}</button></div>
       <div v-if="slots.length" class="slots">
         <div v-for="s in slots.slice(0, 8)" :key="s" class="slot">
           <span>{{ s }}</span>

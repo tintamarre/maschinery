@@ -7,6 +7,7 @@ import Knob from './components/Knob.vue'
 import PadGrid from './components/PadGrid.vue'
 import PadOptions from './components/PadOptions.vue'
 import TouchStrip from './components/TouchStrip.vue'
+import Tour from './components/Tour.vue'
 import Transport from './components/Transport.vue'
 import { PAD_KEYS } from './core/constants'
 import { clearSelection, copySelection, deleteSelection, duplicateSelection, pasteAtCursor, selectAll, selectionSize } from './selection'
@@ -144,6 +145,16 @@ onUnmounted(() => {
 })
 
 // ---- scale-to-fit: the controller is a fixed-size layout that never scrolls --------
+const TOUR_KEY = 'maschinery:tour-done'
+const tourOpen = ref(false)
+function closeTour() {
+  tourOpen.value = false
+  try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ }
+}
+function firstRun(): boolean {
+  try { return !localStorage.getItem(TOUR_KEY) } catch { return false }
+}
+
 const canFullscreen = typeof document !== 'undefined' && document.fullscreenEnabled
 function toggleFullscreen() {
   if (document.fullscreenElement) void document.exitFullscreen()
@@ -168,6 +179,7 @@ function fit() {
 let ro: ResizeObserver | null = null
 onMounted(() => {
   fit()
+  if (firstRun() && !location.hash.startsWith('#p=')) setTimeout(() => (tourOpen.value = true), 600)
   ro = new ResizeObserver(fit)
   if (stage.value) ro.observe(stage.value)
   window.addEventListener('resize', fit)
@@ -191,6 +203,7 @@ onUnmounted(() => {
         <div class="ro"><small>Group · Pattern</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}<em>{{ currentPattern.bars }} bar{{ currentPattern.bars > 1 ? 's' : '' }}</em></span></div>
       </div>
       <div class="vu" title="Master level"><i v-for="n in 24" :key="n" :class="{ lit: n <= vuLevel, warm: n > 16, hot: n > 21 }" /></div>
+      <button class="hw spk" title="Quick tour" @click="tourOpen = true">Tour</button>
       <button v-if="canFullscreen" class="hw spk" title="Fullscreen" @click="toggleFullscreen">Full</button>
       <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output (meters keep running)" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
     </header>
@@ -236,8 +249,9 @@ onUnmounted(() => {
       </section>
     </div>
   </div>
+  <Tour :open="tourOpen" @close="closeTour" />
   <div v-if="ui.calibrating" class="calib">Tap any key or click along with the clicks… <b>{{ ui.calibCount }}</b></div>
-  <div v-if="ui.toast" class="toast">{{ ui.toast }}</div>
+  <div class="toast" :class="{ show: !!ui.toast }" role="status" aria-live="polite">{{ ui.toast }}</div>
   <div v-if="ui.busy" class="busy">{{ ui.busy }}</div>
   </div>
 </template>
@@ -317,6 +331,7 @@ onUnmounted(() => {
 .right { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .padrow { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; align-items: stretch; }
 
+.toast:not(.show) { display: none; }
 .toast {
   position: fixed;
   bottom: 18px;

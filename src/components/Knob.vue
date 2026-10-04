@@ -72,6 +72,18 @@ function onWheel(e: WheelEvent) {
 function reset() {
   if (props.k.label) props.k.set(props.k.def)
 }
+
+function onKey(e: KeyboardEvent) {
+  if (!props.k.label) return
+  const range = props.k.max - props.k.min
+  const small = Math.max(props.k.step, range / 100)
+  const big = Math.max(props.k.step, range / 10)
+  const map: Record<string, number> = { ArrowUp: small, ArrowRight: small, ArrowDown: -small, ArrowLeft: -small, PageUp: big, PageDown: -big }
+  if (e.key in map) { e.preventDefault(); e.stopPropagation(); props.k.set(snap(props.k.value + map[e.key]!)) }
+  else if (e.key === 'Home') { e.preventDefault(); props.k.set(props.k.min) }
+  else if (e.key === 'End') { e.preventDefault(); props.k.set(props.k.max) }
+  else if (e.key === 'Enter') { e.preventDefault(); reset() }
+}
 </script>
 
 <template>
@@ -80,6 +92,14 @@ function reset() {
     <svg
       viewBox="0 0 64 64"
       class="dial"
+      role="slider"
+      :tabindex="k.label ? 0 : -1"
+      :aria-label="k.label"
+      :aria-valuemin="k.min"
+      :aria-valuemax="k.max"
+      :aria-valuenow="k.value"
+      :aria-valuetext="k.text"
+      @keydown="onKey"
       @pointerdown.prevent="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
@@ -100,6 +120,7 @@ function reset() {
 .knob { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
 .lbl { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6f8593; height: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .txt { font-size: 11px; color: #cfe0ea; height: 14px; }
+.dial:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; border-radius: 50%; }
 .dial { width: 100%; max-width: 62px; aspect-ratio: 1; touch-action: none; cursor: ns-resize; }
 .cap { fill: url(#none); fill: #232328; stroke: #000; stroke-width: 2; }
 .track { fill: none; stroke: #0c0c0e; stroke-width: 5; stroke-linecap: round; }
