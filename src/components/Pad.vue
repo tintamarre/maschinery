@@ -18,7 +18,7 @@ const emit = defineEmits<{ down: [velocity: number]; up: []; drop: [file: File] 
 
 const style = computed(() => {
   const s = props.state
-  const base = s.on ? 0.34 : 0.08
+  const base = s.on ? 0.42 : 0.08
   const lvl = Math.min(1, Math.max(base, s.level) + (s.head ? 0.4 : 0))
   return { '--c': s.color, '--lvl': lvl.toFixed(3) }
 })

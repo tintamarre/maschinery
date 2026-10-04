@@ -19,10 +19,10 @@ import { playback, project, selectGroup, ui } from '../store'
 </template>
 
 <style scoped>
-.groups { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.groups { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .grp {
   position: relative;
-  height: 44px;
+  height: 40px;
   border: 1px solid #000;
   border-radius: 8px;
   background: linear-gradient(#34343a, #26262b);

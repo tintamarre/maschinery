@@ -10,9 +10,9 @@ import {
 
 const LABEL_W = 92
 const HEAD_H = 14
-const ROW_H = 15
+const ROW_H = 14
 const GRID_H = HEAD_H + 16 * ROW_H
-const VEL_H = 52
+const VEL_H = 44
 
 const wrap = ref<HTMLElement | null>(null)
 const cv = ref<HTMLCanvasElement | null>(null)
@@ -149,8 +149,9 @@ let lastCell = ''
 
 function hit(e: PointerEvent): { s: number; step: number } | null {
   const r = cv.value!.getBoundingClientRect()
-  const x = e.clientX - r.left - LABEL_W
-  const y = e.clientY - r.top - HEAD_H
+  const k = cv.value!.offsetWidth / r.width // undo the stage scale
+  const x = (e.clientX - r.left) * k - LABEL_W
+  const y = (e.clientY - r.top) * k - HEAD_H
   if (y < 0) return null
   const s = Math.floor(y / ROW_H)
   if (s < 0 || s > 15) return null
@@ -204,7 +205,8 @@ let velTarget: import('../core/types').NoteEvent | null = null
 
 function velAt(e: PointerEvent) {
   const r = vel.value!.getBoundingClientRect()
-  return { x: e.clientX - r.left, y: e.clientY - r.top }
+  const k = vel.value!.offsetWidth / r.width
+  return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }
 }
 
 function velDown(e: PointerEvent) {
@@ -269,7 +271,7 @@ function velUp() { velTarget = null }
 .pv { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; }
 .tools { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
 .chips { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
-.canvases { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-x: hidden; }
+.canvases { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: none; }
 canvas { display: block; touch-action: none; border-radius: 4px; cursor: crosshair; }
 canvas.vel { cursor: ns-resize; }
 </style>

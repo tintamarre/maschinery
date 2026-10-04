@@ -40,13 +40,13 @@ const songBars = () => bounceBars(project, { song: true, loops: 1 })
         <button class="btn" @click="loadDemo">Load demo</button>
       </div>
       <div v-if="slots.length" class="slots">
-        <div v-for="s in slots" :key="s" class="slot">
+        <div v-for="s in slots.slice(0, 8)" :key="s" class="slot">
           <span>{{ s }}</span>
           <button class="btn" @click="loadSlot(s); name = s">Load</button>
           <button class="btn danger" @click="remove(s)">✕</button>
         </div>
       </div>
-      <p class="sub">The current project is also auto-saved in this browser.</p>
+      <p class="sub">The current project is auto-saved in this browser.<template v-if="slots.length > 8"> Showing 8 of {{ slots.length }} saves.</template></p>
     </section>
     <section>
       <h3>Export / import</h3>

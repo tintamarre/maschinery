@@ -57,6 +57,7 @@ export class AudioEngine {
   private perf: BiquadFilterNode
   private comp: DynamicsCompressorNode
   private makeup: GainNode
+  private trim: GainNode
   private masterGain: GainNode
   private limiter: DynamicsCompressorNode
   readonly masterAnalyser: AnalyserNode
@@ -88,6 +89,8 @@ export class AudioEngine {
     this.perf.frequency.value = ctx.sampleRate / 2 - 100
     this.comp = ctx.createDynamicsCompressor()
     this.makeup = ctx.createGain()
+    this.trim = ctx.createGain()
+    this.trim.gain.value = 0.55 // headroom: many voices can stack up
     this.masterGain = ctx.createGain()
     this.limiter = ctx.createDynamicsCompressor()
     this.limiter.threshold.value = -1.5
@@ -99,7 +102,7 @@ export class AudioEngine {
     this.masterAnalyser.fftSize = 1024
     this.scope = this.masterAnalyser
 
-    this.dry.connect(this.gate).connect(this.perf).connect(this.comp).connect(this.makeup).connect(this.masterGain)
+    this.dry.connect(this.gate).connect(this.perf).connect(this.comp).connect(this.makeup).connect(this.trim).connect(this.masterGain)
     this.masterGain.connect(this.limiter).connect(this.masterAnalyser).connect(ctx.destination)
 
     // reverb send

@@ -98,7 +98,7 @@ onUnmounted(() => cancelAnimationFrame(raf))
 .who h3 { margin-bottom: 2px; }
 .acts { display: flex; gap: 5px; flex-wrap: wrap; }
 .scope { margin-left: auto; border-radius: 4px; border: 1px solid #16222a; max-width: 100%; }
-.params { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 18px; }
+.params { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2px 18px; }
 label { display: grid; grid-template-columns: 62px 1fr 52px; align-items: center; gap: 6px; font-size: 11px; color: #5d7280; padding: 1px 0; }
 label.hot { color: #cfe0ea; }
 label.hot span { color: var(--g); }

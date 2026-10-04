@@ -11,10 +11,10 @@ const total = () => project.song.reduce((a, s) => a + s.bars, 0)
       <button class="btn" :class="{ primary: ui.songMode }" @click="ui.songMode = !ui.songMode">Song mode {{ ui.songMode ? 'ON' : 'OFF' }}</button>
       <label class="sub"><input v-model="settings.songLoop" type="checkbox" /> Loop</label>
       <span class="sub">{{ project.song.length }} sections · {{ total() }} bars</span>
-      <button class="btn" @click="addSongSection()">+ Add section (scene {{ ui.scene + 1 }})</button>
+      <button class="btn" :disabled="project.song.length >= 16" @click="addSongSection()">+ Add section (scene {{ ui.scene + 1 }})</button>
     </div>
     <p v-if="!project.song.length" class="sub">No sections yet. Build scenes in the Scenes view, then chain them here and press Play with Song mode on.</p>
-    <div class="list scroll-y">
+    <div class="list">
       <div v-for="(s, i) in project.song" :key="i" class="row" :class="{ now: playback.songIdx === i && playback.playing }">
         <span class="n mono">{{ i + 1 }}</span>
         <select v-model.number="s.scene">
@@ -34,9 +34,10 @@ const total = () => project.song.reduce((a, s) => a + s.bars, 0)
 .sg { display: flex; flex-direction: column; gap: 8px; }
 .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 p { margin: 0; }
-.list { display: flex; flex-direction: column; gap: 4px; max-height: 280px; }
+.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
 .row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; background: #0b1216; border: 1px solid #14212a; }
 .row.now { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, #0b1216); }
 .n { width: 22px; color: #5d7280; }
-input[type='number'] { width: 56px; }
+input[type='number'] { width: 52px; }
+.row .btn { padding: 4px 7px; }
 </style>

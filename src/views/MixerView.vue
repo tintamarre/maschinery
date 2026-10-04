@@ -78,14 +78,16 @@ const db = (v: number) => Math.min(100, Math.sqrt(v) * 100)
 <style scoped>
 .mx { display: flex; flex-direction: column; gap: 8px; }
 .tabs { display: flex; gap: 4px; }
-.strips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.strip { flex: 1 0 64px; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 4px; border-radius: 6px; background: #0b1216; border: 1px solid #14212a; }
-.strip.small { flex-basis: 46px; max-width: 60px; }
+.strips { display: flex; gap: 6px; }
+.strip { flex: 1 1 0; min-width: 0; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 4px; border-radius: 6px; background: #0b1216; border: 1px solid #14212a; }
+.strip.small { padding: 6px 2px; gap: 4px; }
+.strip.small .ms { flex-direction: column; }
+.strip.small .chip { min-width: 24px; }
 .strip.sel { border-color: var(--gc); }
 .strip.master { border-color: #3a4d58; }
 .name { font-weight: 800; font-size: 13px; }
 .strip.small .name { font-size: 11px; color: #8ea3b0; }
-.fader { display: flex; gap: 4px; height: 120px; }
+.fader { display: flex; gap: 4px; height: 104px; }
 .meter { width: 6px; background: #05090c; border-radius: 3px; display: flex; align-items: flex-end; overflow: hidden; }
 .meter i { display: block; width: 100%; background: linear-gradient(#ff5d5d, #ffd60a 25%, #38e07b 55%); min-height: 0; }
 .fader input[type='range'] { writing-mode: vertical-lr; direction: rtl; width: 18px; height: 100%; }
