@@ -29,7 +29,7 @@ En mode dev, le store est exposé sur `window.__m` (et les modules du coeur sur 
 - Web MIDI (Chrome/Edge) : entrée (notes 36–51 = pads, CC 70–77 = potards, CC 1 = touch strip, pitch bend, start/stop) et sortie (horloge, start/stop, notes horodatées)
 - Sauvegarde automatique (localStorage + IndexedDB pour les samples), slots nommés, export/import JSON (samples inclus), lien de partage (projet compressé dans l'URL, sans samples), bounce WAV hors-ligne (patterns ou song)
 - Fonctionne hors-ligne après la première visite (service worker), installable (manifest), déblocage audio iOS, écran maintenu allumé pendant la lecture, plein écran
-- Interface à taille fixe mise à l'échelle pour tenir dans la fenêtre : jamais de scroll (paysage et portrait) ; visite guidée au premier lancement, potards utilisables au clavier, libellés ARIA
+- Interface à taille fixe mise à l'échelle pour tenir dans la fenêtre : jamais de scroll (paysage et portrait) ; visite guidée au premier lancement, écran Help (guide d'utilisation en 6 onglets : Start, Beat, Record, Sound, Arrange, Share), potards utilisables au clavier, libellés ARIA
 
 ## Raccourcis clavier
 

@@ -7,7 +7,7 @@ const emit = defineEmits<{ close: [] }>()
 const steps = [
   { sel: '.padrow', title: 'Play the pads', text: 'Click or tap the pads, or use the keyboard: Z X C V is the bottom row, then A S D F, Q W E R and 1 2 3 4. Hit a pad lower for a louder sound.' },
   { sel: '.transport-box', title: 'Transport', text: 'Play (Space) runs the patterns. Rec (Enter) records what you play, with a count-in and quantizing. Auto records knob moves, Repeat gives rolls.' },
-  { sel: '.views', title: 'Screens', text: 'Pattern is the note editor. Sound shapes the selected pad, Sample loads or records audio, Mixer and Master balance and add effects, Scenes and Song arrange, File saves, shares and exports WAV.' },
+  { sel: '.views', title: 'Screens', text: 'Pattern is the note editor. Sound shapes the selected pad, Sample loads or records audio, Mixer and Master balance and add effects, Scenes and Song arrange, File saves, shares and exports WAV. Help has a short written guide.' },
   { sel: '.knobs', title: 'Eight knobs', text: 'Drag, scroll or use the arrow keys. Double-click resets. They always control what the screen above shows; the page buttons reveal more.' },
   { sel: '.groups-box', title: 'Eight groups', text: 'Each group A–H has 16 pads and 16 patterns. The Pad mode buttons below turn the pads into a keyboard, chords, a step sequencer, scenes or patterns.' },
   { sel: '.top', title: 'Up here', text: 'Tempo and position, a master level meter, Mute for silence, Full for fullscreen. Everything is saved automatically in this browser, and it works offline once loaded.' },

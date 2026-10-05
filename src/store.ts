@@ -25,7 +25,7 @@ import { SUSTAINED, type Voice } from './core/voices'
 import type { AutoLane, EngineId, KnobDef, NoteEvent, Project, Settings, SoundParams } from './core/types'
 
 export type PadMode = 'pad' | 'keyboard' | 'chords' | 'step' | 'scene' | 'pattern'
-export type ViewId = 'pattern' | 'sound' | 'sample' | 'mixer' | 'master' | 'scenes' | 'song' | 'browser' | 'file' | 'settings'
+export type ViewId = 'pattern' | 'sound' | 'sample' | 'mixer' | 'master' | 'scenes' | 'song' | 'browser' | 'file' | 'settings' | 'help'
 export type StripMode = 'pitch' | 'filter' | 'mod'
 
 export const PAD_MODES: PadMode[] = ['pad', 'keyboard', 'chords', 'step', 'scene', 'pattern']
@@ -104,6 +104,7 @@ export const ui = reactive({
   snapArm: false,
   autoWrite: false,
   calibrating: false,
+  tourOpen: false,
   calibCount: 0,
   autoView: false,
   snap: new Array<number>(NUM_GROUPS).fill(-1),

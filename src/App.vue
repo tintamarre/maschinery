@@ -18,6 +18,7 @@ import MixerView from './views/MixerView.vue'
 import PatternView from './views/PatternView.vue'
 import SampleView from './views/SampleView.vue'
 import ScenesView from './views/ScenesView.vue'
+import HelpView from './views/HelpView.vue'
 import SettingsView from './views/SettingsView.vue'
 import SongView from './views/SongView.vue'
 import SoundView from './views/SoundView.vue'
@@ -37,11 +38,12 @@ const views: { id: ViewId; label: string }[] = [
   { id: 'browser', label: 'Browser' },
   { id: 'file', label: 'File' },
   { id: 'settings', label: 'Setup' },
+  { id: 'help', label: 'Help' },
 ]
 
 const viewComp = {
   pattern: PatternView, sound: SoundView, sample: SampleView, mixer: MixerView, master: MasterView,
-  scenes: ScenesView, song: SongView, browser: BrowserView, file: FileView, settings: SettingsView,
+  scenes: ScenesView, song: SongView, browser: BrowserView, file: FileView, settings: SettingsView, help: HelpView,
 }
 
 const modeLabels: Record<string, string> = { pad: 'Pad', keyboard: 'Keys', chords: 'Chords', step: 'Step', scene: 'Scene', pattern: 'Pattern' }
@@ -146,9 +148,8 @@ onUnmounted(() => {
 
 // ---- scale-to-fit: the controller is a fixed-size layout that never scrolls --------
 const TOUR_KEY = 'maschinery:tour-done'
-const tourOpen = ref(false)
 function closeTour() {
-  tourOpen.value = false
+  ui.tourOpen = false
   try { localStorage.setItem(TOUR_KEY, '1') } catch { /* private mode */ }
 }
 function firstRun(): boolean {
@@ -179,7 +180,7 @@ function fit() {
 let ro: ResizeObserver | null = null
 onMounted(() => {
   fit()
-  if (firstRun() && !location.hash.startsWith('#p=')) setTimeout(() => (tourOpen.value = true), 600)
+  if (firstRun() && !location.hash.startsWith('#p=')) setTimeout(() => (ui.tourOpen = true), 600)
   ro = new ResizeObserver(fit)
   if (stage.value) ro.observe(stage.value)
   window.addEventListener('resize', fit)
@@ -203,7 +204,7 @@ onUnmounted(() => {
         <div class="ro"><small>Group · Pattern</small><span :style="{ color: currentGroup.color }">{{ currentGroup.name }}{{ currentGroup.pattern + 1 }}<em>{{ currentPattern.bars }} bar{{ currentPattern.bars > 1 ? 's' : '' }}</em></span></div>
       </div>
       <div class="vu" title="Master level"><i v-for="n in 24" :key="n" :class="{ lit: n <= vuLevel, warm: n > 16, hot: n > 21 }" /></div>
-      <button class="hw spk" title="Quick tour" @click="tourOpen = true">Tour</button>
+      <button class="hw spk" title="Quick tour" @click="ui.tourOpen = true">Tour</button>
       <button v-if="canFullscreen" class="hw spk" title="Fullscreen" @click="toggleFullscreen">Full</button>
       <button class="hw spk" :class="{ on: ui.muted }" title="Mute the output (meters keep running)" @click="setOutputMute(!ui.muted)">{{ ui.muted ? 'Muted' : 'Mute' }}</button>
     </header>
@@ -249,7 +250,7 @@ onUnmounted(() => {
       </section>
     </div>
   </div>
-  <Tour :open="tourOpen" @close="closeTour" />
+  <Tour :open="ui.tourOpen" @close="closeTour" />
   <div v-if="ui.calibrating" class="calib">Tap any key or click along with the clicks… <b>{{ ui.calibCount }}</b></div>
   <div class="toast" :class="{ show: !!ui.toast }" role="status" aria-live="polite">{{ ui.toast }}</div>
   <div v-if="ui.busy" class="busy">{{ ui.busy }}</div>
